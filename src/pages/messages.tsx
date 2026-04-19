@@ -7,7 +7,6 @@ import { Button } from "@/components/ui/button"
 import { Link, useNavigate } from "react-router-dom"
 import { Bell, MessageCircle, Heart } from "lucide-react"
 import { timeAgo } from "@/lib/hijri"
-import { Skeleton } from "@/components/ui/skeleton"
 
 export function MessagesPage() {
   const { user } = useAuth()
@@ -54,9 +53,7 @@ export function MessagesPage() {
         <h1 className="text-xl font-serif-cn font-semibold">消息</h1>
       </div>
 
-      {loading ? (
-        <Skeleton className="h-48 w-full" />
-      ) : notifications.length === 0 ? (
+      {loading ? null : notifications.length === 0 ? (
         <Card className="p-10 text-center bg-muted/30 border-dashed">
           <Bell className="h-8 w-8 mx-auto text-muted-foreground mb-2" />
           <p className="text-sm text-muted-foreground">暂无新消息</p>

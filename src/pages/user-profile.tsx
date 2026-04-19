@@ -8,7 +8,6 @@ import { Card } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { ArticleCard } from "@/components/article-card"
 import { TopicCard } from "@/components/topic-card"
-import { Skeleton } from "@/components/ui/skeleton"
 import { ArrowLeft, Shield, BadgeCheck, Calendar } from "lucide-react"
 import { timeAgo } from "@/lib/hijri"
 import { useAuth } from "@/contexts/auth-context"
@@ -58,13 +57,7 @@ export function UserProfilePage() {
   }
 
   if (loading) {
-    return (
-      <div className="px-4 pt-4 space-y-4">
-        <Skeleton className="h-32 w-full" />
-        <Skeleton className="h-10 w-full" />
-        <Skeleton className="h-64 w-full" />
-      </div>
-    )
+    return <div className="px-4 pt-4" />
   }
 
   if (!profile) {

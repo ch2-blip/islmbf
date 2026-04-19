@@ -6,7 +6,6 @@ import type { Article, Topic } from "@/lib/database.types"
 import { ArticleCard } from "@/components/article-card"
 import { TopicCard } from "@/components/topic-card"
 import { Card } from "@/components/ui/card"
-import { Skeleton } from "@/components/ui/skeleton"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { ArrowLeft, Bookmark, Heart, FileText } from "lucide-react"
 
@@ -87,9 +86,7 @@ export function BookmarksPage({ mode }: { mode: Mode }) {
         <h1 className="text-xl font-serif-cn font-semibold">{titleMap[mode].title}</h1>
       </div>
 
-      {loading ? (
-        <Skeleton className="h-64 w-full" />
-      ) : articles.length === 0 && topics.length === 0 ? (
+      {loading ? null : articles.length === 0 && topics.length === 0 ? (
         <Card className="p-10 text-center bg-muted/30 border-dashed">
           <p className="text-sm text-muted-foreground">暂无内容</p>
         </Card>

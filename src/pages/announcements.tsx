@@ -3,7 +3,6 @@ import { useNavigate } from "react-router-dom"
 import { supabase } from "@/lib/supabase"
 import type { Announcement } from "@/lib/database.types"
 import { Card } from "@/components/ui/card"
-import { Skeleton } from "@/components/ui/skeleton"
 import { ArrowLeft, Megaphone } from "lucide-react"
 import { timeAgo } from "@/lib/hijri"
 
@@ -36,9 +35,7 @@ export function AnnouncementsPage() {
         <Megaphone className="h-5 w-5 text-accent-foreground" />
         <h1 className="text-xl font-serif-cn font-semibold">社区公告</h1>
       </div>
-      {loading ? (
-        <Skeleton className="h-48 w-full" />
-      ) : items.length === 0 ? (
+      {loading ? null : items.length === 0 ? (
         <Card className="p-10 text-center bg-muted/30">
           <p className="text-sm text-muted-foreground">暂无公告</p>
         </Card>

@@ -7,25 +7,32 @@ import { ArticleCard } from "@/components/article-card"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { ArrowLeft } from "lucide-react"
-import { Skeleton } from "@/components/ui/skeleton"
+import { getCache, setCache } from "@/lib/page-cache"
+
+type BoardCache = { board: Board | null; topics: Topic[] }
 
 export function BoardDetailPage() {
   const { slug } = useParams<{ slug: string }>()
   const nav = useNavigate()
-  const [board, setBoard] = useState<Board | null>(null)
-  const [topics, setTopics] = useState<Topic[]>([])
-  const [loading, setLoading] = useState(true)
+  const cached = slug ? getCache<BoardCache>(`board:${slug}`) : undefined
+  const [board, setBoard] = useState<Board | null>(cached?.board ?? null)
+  const [topics, setTopics] = useState<Topic[]>(cached?.topics ?? [])
+  const [loaded, setLoaded] = useState(!!cached)
 
   useEffect(() => {
     if (!slug) return
+    const c = getCache<BoardCache>(`board:${slug}`)
+    setBoard(c?.board ?? null)
+    setTopics(c?.topics ?? [])
+    setLoaded(!!c)
     load()
   }, [slug])
 
   async function load() {
     if (!slug) return
-    setLoading(true)
     const { data: b } = await supabase.from("boards").select("*").eq("slug", slug).maybeSingle()
     setBoard(b)
+    let nextTopics: Topic[] = []
     if (b) {
       const { data } = await supabase
         .from("topics")
@@ -34,12 +41,14 @@ export function BoardDetailPage() {
         .eq("status", "published")
         .order("is_pinned", { ascending: false })
         .order("last_reply_at", { ascending: false })
-      setTopics((data as Topic[]) ?? [])
+      nextTopics = (data as Topic[]) ?? []
+      setTopics(nextTopics)
     }
-    setLoading(false)
+    setLoaded(true)
+    setCache<BoardCache>(`board:${slug}`, { board: b, topics: nextTopics })
   }
 
-  if (!board && !loading) {
+  if (!board && loaded) {
     return (
       <div className="px-4 pt-12 text-center">
         <p className="text-muted-foreground mb-4">板块不存在</p>
@@ -64,12 +73,12 @@ export function BoardDetailPage() {
         </div>
       )}
 
-      {loading ? (
-        <Skeleton className="h-64 w-full" />
-      ) : topics.length === 0 ? (
-        <Card className="p-10 text-center bg-muted/30">
-          <p className="text-sm text-muted-foreground">该板块暂无话题</p>
-        </Card>
+      {topics.length === 0 ? (
+        loaded ? (
+          <Card className="p-10 text-center bg-muted/30">
+            <p className="text-sm text-muted-foreground">该板块暂无话题</p>
+          </Card>
+        ) : null
       ) : (
         <Card className="overflow-hidden">
           {topics.map((t) => (
@@ -81,23 +90,30 @@ export function BoardDetailPage() {
   )
 }
 
+type CategoryCache = { category: Category | null; articles: Article[] }
+
 export function CategoryDetailPage() {
   const { slug } = useParams<{ slug: string }>()
   const nav = useNavigate()
-  const [category, setCategory] = useState<Category | null>(null)
-  const [articles, setArticles] = useState<Article[]>([])
-  const [loading, setLoading] = useState(true)
+  const cached = slug ? getCache<CategoryCache>(`category:${slug}`) : undefined
+  const [category, setCategory] = useState<Category | null>(cached?.category ?? null)
+  const [articles, setArticles] = useState<Article[]>(cached?.articles ?? [])
+  const [loaded, setLoaded] = useState(!!cached)
 
   useEffect(() => {
     if (!slug) return
+    const c = getCache<CategoryCache>(`category:${slug}`)
+    setCategory(c?.category ?? null)
+    setArticles(c?.articles ?? [])
+    setLoaded(!!c)
     load()
   }, [slug])
 
   async function load() {
     if (!slug) return
-    setLoading(true)
     const { data: c } = await supabase.from("categories").select("*").eq("slug", slug).maybeSingle()
     setCategory(c)
+    let nextArticles: Article[] = []
     if (c) {
       const { data } = await supabase
         .from("articles")
@@ -106,9 +122,11 @@ export function CategoryDetailPage() {
         .eq("status", "published")
         .order("is_pinned", { ascending: false })
         .order("published_at", { ascending: false })
-      setArticles((data as Article[]) ?? [])
+      nextArticles = (data as Article[]) ?? []
+      setArticles(nextArticles)
     }
-    setLoading(false)
+    setLoaded(true)
+    setCache<CategoryCache>(`category:${slug}`, { category: c, articles: nextArticles })
   }
 
   return (
@@ -127,12 +145,12 @@ export function CategoryDetailPage() {
         </div>
       )}
 
-      {loading ? (
-        <Skeleton className="h-64 w-full" />
-      ) : articles.length === 0 ? (
-        <Card className="p-10 text-center bg-muted/30">
-          <p className="text-sm text-muted-foreground">该分类暂无文章</p>
-        </Card>
+      {articles.length === 0 ? (
+        loaded ? (
+          <Card className="p-10 text-center bg-muted/30">
+            <p className="text-sm text-muted-foreground">该分类暂无文章</p>
+          </Card>
+        ) : null
       ) : (
         <div className="space-y-4">
           {articles.map((a) => (

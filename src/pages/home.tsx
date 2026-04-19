@@ -4,11 +4,19 @@ import type { Article, Topic, Announcement } from "@/lib/database.types"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { ArticleCard } from "@/components/article-card"
 import { TopicCard } from "@/components/topic-card"
-import { Skeleton } from "@/components/ui/skeleton"
 import { Card } from "@/components/ui/card"
 import { Megaphone, Sparkles } from "lucide-react"
 import { Link, useSearchParams } from "react-router-dom"
 import { timeAgo } from "@/lib/hijri"
+import { getCache, setCache } from "@/lib/page-cache"
+
+type HomeCache = {
+  articles: Article[]
+  topics: Topic[]
+  announcement: Announcement | null
+}
+
+const CACHE_KEY = "home"
 
 export function HomePage() {
   const [searchParams, setSearchParams] = useSearchParams()
@@ -19,17 +27,17 @@ export function HomePage() {
     else next.set("tab", v)
     setSearchParams(next, { replace: true })
   }
-  const [articles, setArticles] = useState<Article[]>([])
-  const [topics, setTopics] = useState<Topic[]>([])
-  const [announcement, setAnnouncement] = useState<Announcement | null>(null)
-  const [loading, setLoading] = useState(true)
+  const cached = getCache<HomeCache>(CACHE_KEY)
+  const [articles, setArticles] = useState<Article[]>(cached?.articles ?? [])
+  const [topics, setTopics] = useState<Topic[]>(cached?.topics ?? [])
+  const [announcement, setAnnouncement] = useState<Announcement | null>(cached?.announcement ?? null)
+  const [loaded, setLoaded] = useState(!!cached)
 
   useEffect(() => {
     loadAll()
   }, [])
 
   async function loadAll() {
-    setLoading(true)
     const [arRes, tpRes, anRes] = await Promise.all([
       supabase
         .from("articles")
@@ -53,10 +61,18 @@ export function HomePage() {
         .limit(1)
         .maybeSingle(),
     ])
-    setArticles((arRes.data as Article[]) ?? [])
-    setTopics((tpRes.data as Topic[]) ?? [])
-    setAnnouncement(anRes.data)
-    setLoading(false)
+    const nextArticles = (arRes.data as Article[]) ?? []
+    const nextTopics = (tpRes.data as Topic[]) ?? []
+    const nextAnnouncement = anRes.data ?? null
+    setArticles(nextArticles)
+    setTopics(nextTopics)
+    setAnnouncement(nextAnnouncement)
+    setLoaded(true)
+    setCache<HomeCache>(CACHE_KEY, {
+      articles: nextArticles,
+      topics: nextTopics,
+      announcement: nextAnnouncement,
+    })
   }
 
   return (
@@ -87,20 +103,16 @@ export function HomePage() {
         </TabsList>
 
         <TabsContent value="articles" className="mt-4 space-y-4">
-          {loading ? (
-            <ArticleSkeletons />
-          ) : articles.length === 0 ? (
-            <EmptyState type="article" />
+          {articles.length === 0 ? (
+            loaded ? <EmptyState type="article" /> : null
           ) : (
             articles.map((a) => <ArticleCard key={a.id} article={a} />)
           )}
         </TabsContent>
 
         <TabsContent value="topics" className="mt-4">
-          {loading ? (
-            <TopicSkeletons />
-          ) : topics.length === 0 ? (
-            <EmptyState type="topic" />
+          {topics.length === 0 ? (
+            loaded ? <EmptyState type="topic" /> : null
           ) : (
             <Card className="overflow-hidden divide-y-0 p-0">
               {topics.map((t) => (
@@ -111,39 +123,6 @@ export function HomePage() {
         </TabsContent>
       </Tabs>
     </div>
-  )
-}
-
-function ArticleSkeletons() {
-  return (
-    <>
-      {Array.from({ length: 3 }).map((_, i) => (
-        <Card key={i} className="overflow-hidden">
-          <Skeleton className="aspect-[16/7] w-full" />
-          <div className="p-4 space-y-2">
-            <Skeleton className="h-5 w-3/4" />
-            <Skeleton className="h-4 w-full" />
-            <Skeleton className="h-4 w-1/2" />
-          </div>
-        </Card>
-      ))}
-    </>
-  )
-}
-
-function TopicSkeletons() {
-  return (
-    <Card>
-      {Array.from({ length: 5 }).map((_, i) => (
-        <div key={i} className="flex gap-3 p-4 border-b last:border-b-0">
-          <Skeleton className="h-10 w-10 rounded-full" />
-          <div className="flex-1 space-y-2">
-            <Skeleton className="h-4 w-3/4" />
-            <Skeleton className="h-3 w-1/2" />
-          </div>
-        </div>
-      ))}
-    </Card>
   )
 }
 

@@ -5,8 +5,8 @@ import type { Topic } from "@/lib/database.types"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Skeleton } from "@/components/ui/skeleton"
 import { CommentSection } from "@/components/comment-section"
+import { getCache, setCache } from "@/lib/page-cache"
 import { Heart, Share2, ArrowLeft, Trash2, Pencil, Pin, Lock } from "lucide-react"
 import { timeAgo } from "@/lib/hijri"
 import { useAuth } from "@/contexts/auth-context"
@@ -17,25 +17,30 @@ export function TopicDetailPage() {
   const { id } = useParams<{ id: string }>()
   const nav = useNavigate()
   const { user, isModerator } = useAuth()
-  const [topic, setTopic] = useState<Topic | null>(null)
-  const [loading, setLoading] = useState(true)
+  const cached = id ? getCache<Topic>(`topic:${id}`) : undefined
+  const [topic, setTopic] = useState<Topic | null>(cached ?? null)
+  const [loaded, setLoaded] = useState(!!cached)
   const [liked, setLiked] = useState(false)
 
   useEffect(() => {
     if (!id) return
+    const c = getCache<Topic>(`topic:${id}`)
+    setTopic(c ?? null)
+    setLoaded(!!c)
     load()
   }, [id])
 
   async function load() {
     if (!id) return
-    setLoading(true)
     const { data } = await supabase
       .from("topics")
       .select("*, author:profiles!topics_author_id_fkey(*), board:boards(*)")
       .eq("id", id)
       .maybeSingle()
     setTopic(data as Topic)
+    setLoaded(true)
     if (data) {
+      setCache<Topic>(`topic:${id}`, data as Topic)
       await supabase
         .from("topics")
         .update({ view_count: data.view_count + 1 })
@@ -52,7 +57,6 @@ export function TopicDetailPage() {
         .maybeSingle()
       setLiked(!!likeData)
     }
-    setLoading(false)
   }
 
   async function toggleLike() {
@@ -108,16 +112,8 @@ export function TopicDetailPage() {
     }
   }
 
-  if (loading) {
-    return (
-      <div className="px-4 pt-4 space-y-4">
-        <Skeleton className="h-6 w-3/4" />
-        <Skeleton className="h-32 w-full" />
-      </div>
-    )
-  }
-
   if (!topic) {
+    if (!loaded) return <div className="px-4 pt-4" />
     return (
       <div className="px-4 pt-12 text-center">
         <p className="text-muted-foreground mb-4">话题不存在或已删除</p>

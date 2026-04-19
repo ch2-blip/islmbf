@@ -2,7 +2,6 @@ import { useEffect, useState } from "react"
 import { fetchPrayerTimes, getNextPrayer, PRAYER_LABELS, type PrayerTimes } from "@/lib/prayer-times"
 import { Card, CardContent } from "@/components/ui/card"
 import { MapPin, Clock } from "lucide-react"
-import { Skeleton } from "@/components/ui/skeleton"
 import { EightPointStar } from "./geometric-pattern"
 
 export function PrayerCard() {
@@ -20,13 +19,7 @@ export function PrayerCard() {
   }, [])
 
   if (loading) {
-    return (
-      <Card className="overflow-hidden border-accent/20 bg-gradient-to-br from-primary/5 to-accent/5">
-        <CardContent className="p-4">
-          <Skeleton className="h-20 w-full" />
-        </CardContent>
-      </Card>
-    )
+    return null
   }
 
   if (!times) {

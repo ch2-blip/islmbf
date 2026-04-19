@@ -5,8 +5,8 @@ import type { Article } from "@/lib/database.types"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Skeleton } from "@/components/ui/skeleton"
 import { CommentSection } from "@/components/comment-section"
+import { getCache, setCache } from "@/lib/page-cache"
 import { Heart, Bookmark, Share2, ArrowLeft, Trash2, Pencil } from "lucide-react"
 import { timeAgo } from "@/lib/hijri"
 import { useAuth } from "@/contexts/auth-context"
@@ -17,26 +17,32 @@ export function ArticleDetailPage() {
   const { id } = useParams<{ id: string }>()
   const nav = useNavigate()
   const { user, isModerator } = useAuth()
-  const [article, setArticle] = useState<Article | null>(null)
-  const [loading, setLoading] = useState(true)
+  const cacheKey = id ? `article:${id}` : ""
+  const cached = cacheKey ? getCache<Article>(cacheKey) : undefined
+  const [article, setArticle] = useState<Article | null>(cached ?? null)
+  const [loaded, setLoaded] = useState(!!cached)
   const [liked, setLiked] = useState(false)
   const [bookmarked, setBookmarked] = useState(false)
 
   useEffect(() => {
     if (!id) return
+    const c = getCache<Article>(`article:${id}`)
+    setArticle(c ?? null)
+    setLoaded(!!c)
     load()
   }, [id])
 
   async function load() {
     if (!id) return
-    setLoading(true)
     const { data } = await supabase
       .from("articles")
       .select("*, author:profiles!articles_author_id_fkey(*), category:categories(*)")
       .eq("id", id)
       .maybeSingle()
     setArticle(data as Article)
+    setLoaded(true)
     if (data) {
+      setCache<Article>(`article:${id}`, data as Article)
       await supabase
         .from("articles")
         .update({ view_count: data.view_count + 1 })
@@ -64,7 +70,6 @@ export function ArticleDetailPage() {
       setLiked(!!likeData)
       setBookmarked(!!bmData)
     }
-    setLoading(false)
   }
 
   async function toggleReaction(type: "like" | "bookmark") {
@@ -134,17 +139,8 @@ export function ArticleDetailPage() {
     }
   }
 
-  if (loading) {
-    return (
-      <div className="px-4 pt-4 space-y-4">
-        <Skeleton className="h-6 w-3/4" />
-        <Skeleton className="h-52 w-full" />
-        <Skeleton className="h-32 w-full" />
-      </div>
-    )
-  }
-
   if (!article) {
+    if (!loaded) return <div className="px-4 pt-4" />
     return (
       <div className="px-4 pt-12 text-center">
         <p className="text-muted-foreground mb-4">文章不存在或已删除</p>
