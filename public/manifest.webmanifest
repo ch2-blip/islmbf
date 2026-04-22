@@ -1,0 +1,19 @@
+{
+  "name": "静园 · 华语穆斯林社区",
+  "short_name": "静园",
+  "description": "静园，一个让华语穆斯林安心阅读、真诚交流的家园。",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#faf7f1",
+  "theme_color": "#1f5f4a",
+  "icons": [
+    {
+      "src": "/pwa-icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

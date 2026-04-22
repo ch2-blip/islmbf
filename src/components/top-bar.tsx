@@ -1,5 +1,7 @@
+import { useEffect, useState } from "react"
 import { Link, useNavigate } from "react-router-dom"
 import { useAuth } from "@/contexts/auth-context"
+import { supabase } from "@/lib/supabase"
 import { Button } from "@/components/ui/button"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import {
@@ -16,16 +18,45 @@ import { EightPointStar } from "./geometric-pattern"
 export function TopBar() {
   const { profile, user, isAdmin, signOut } = useAuth()
   const nav = useNavigate()
+  const [siteName, setSiteName] = useState("静园")
+  const [siteIcon, setSiteIcon] = useState("")
+
+  useEffect(() => {
+    let active = true
+    async function load() {
+      const { data } = await supabase
+        .from("site_settings")
+        .select("site_name, site_icon_url")
+        .eq("id", 1)
+        .maybeSingle()
+      if (active && data) {
+        setSiteName(data.site_name || "静园")
+        setSiteIcon(data.site_icon_url || "")
+        if (data.site_name) document.title = data.site_name
+      }
+    }
+    load()
+    const onUpdate = () => load()
+    window.addEventListener("site-settings-updated", onUpdate)
+    return () => {
+      active = false
+      window.removeEventListener("site-settings-updated", onUpdate)
+    }
+  }, [])
 
   return (
     <header className="sticky top-0 z-40 border-b border-border/60 bg-background/85 backdrop-blur-md">
       <div className="mx-auto flex max-w-3xl items-center justify-between gap-2 px-4 py-3">
         <Link to="/" className="flex items-center gap-2 group">
-          <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary text-primary-foreground shadow-sm group-hover:shadow-md transition-shadow">
-            <EightPointStar size={20} />
+          <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary text-primary-foreground shadow-sm group-hover:shadow-md transition-shadow overflow-hidden">
+            {siteIcon ? (
+              <img src={siteIcon} alt={siteName} className="h-full w-full object-cover" />
+            ) : (
+              <EightPointStar size={20} />
+            )}
           </span>
           <div className="leading-tight">
-            <div className="text-base font-semibold font-serif-cn text-foreground">静园</div>
+            <div className="text-base font-semibold font-serif-cn text-foreground">{siteName}</div>
             <div className="text-[10px] text-muted-foreground tracking-wide">JING·YUAN</div>
           </div>
         </Link>

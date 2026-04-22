@@ -19,6 +19,7 @@ import { SearchPage } from "@/pages/search"
 import { AdminPage } from "@/pages/admin"
 import { AnnouncementsPage } from "@/pages/announcements"
 import { BookmarksPage } from "@/pages/bookmarks"
+import { DraftsPage } from "@/pages/drafts"
 
 export function App() {
   return (
@@ -43,6 +44,7 @@ export function App() {
             <Route path="/me/articles" element={<BookmarksPage mode="my-articles" />} />
             <Route path="/me/bookmarks" element={<BookmarksPage mode="bookmark" />} />
             <Route path="/me/likes" element={<BookmarksPage mode="like" />} />
+            <Route path="/me/drafts" element={<DraftsPage />} />
             <Route path="/settings" element={<SettingsPage />} />
             <Route path="/messages" element={<MessagesPage />} />
             <Route path="/notifications" element={<MessagesPage />} />

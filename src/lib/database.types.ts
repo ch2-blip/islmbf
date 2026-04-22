@@ -1,8 +1,10 @@
 export type UserRole = "user" | "scholar" | "moderator" | "admin"
-export type ArticleStatus = "draft" | "published" | "archived"
+export type ArticleStatus = "draft" | "pending" | "published" | "archived"
 export type TopicStatus = "published" | "archived"
 export type ReactionType = "like" | "bookmark"
 export type TargetType = "article" | "topic" | "comment"
+export type AvatarShape = "circle" | "square" | "rounded"
+export type HaloStyle = "none" | "gold" | "emerald" | "rose" | "sky"
 
 export interface Profile {
   id: string
@@ -14,6 +16,31 @@ export interface Profile {
   is_banned: boolean
   post_count: number
   comment_count: number
+  avatar_shape: AvatarShape
+  badge_text: string
+  halo_style: HaloStyle
+  can_post_video: boolean
+  phone: string
+  created_at: string
+  updated_at: string
+}
+
+export interface SiteSettings {
+  id: number
+  site_name: string
+  site_icon_url: string
+  allow_video_posts: boolean
+  updated_at: string
+}
+
+export interface UserPermissions {
+  user_id: string
+  can_manage_reports: boolean
+  can_manage_content: boolean
+  can_manage_users: boolean
+  can_manage_announcements: boolean
+  can_manage_sensitive: boolean
+  can_manage_taxonomy: boolean
   created_at: string
   updated_at: string
 }
@@ -51,6 +78,7 @@ export interface Article {
   like_count: number
   comment_count: number
   published_at: string
+  video_url: string
   created_at: string
   updated_at: string
   author?: Profile
@@ -158,6 +186,8 @@ export type Database = {
       notifications: { Row: Notification; Insert: Partial<Notification>; Update: Partial<Notification> }
       announcements: { Row: Announcement; Insert: Partial<Announcement>; Update: Partial<Announcement> }
       sensitive_words: { Row: SensitiveWord; Insert: Partial<SensitiveWord>; Update: Partial<SensitiveWord> }
+      site_settings: { Row: SiteSettings; Insert: Partial<SiteSettings>; Update: Partial<SiteSettings> }
+      user_permissions: { Row: UserPermissions; Insert: Partial<UserPermissions>; Update: Partial<UserPermissions> }
     }
   }
 }

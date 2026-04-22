@@ -1,12 +1,13 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react"
 import { supabase } from "@/lib/supabase"
-import type { Profile } from "@/lib/database.types"
+import type { Profile, UserPermissions } from "@/lib/database.types"
 import type { Session, User } from "@supabase/supabase-js"
 
 interface AuthContextValue {
   session: Session | null
   user: User | null
   profile: Profile | null
+  permissions: UserPermissions | null
   loading: boolean
   isAdmin: boolean
   isModerator: boolean
@@ -21,15 +22,16 @@ const AuthContext = createContext<AuthContextValue | undefined>(undefined)
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null)
   const [profile, setProfile] = useState<Profile | null>(null)
+  const [permissions, setPermissions] = useState<UserPermissions | null>(null)
   const [loading, setLoading] = useState(true)
 
   async function loadProfile(userId: string) {
-    const { data } = await supabase
-      .from("profiles")
-      .select("*")
-      .eq("id", userId)
-      .maybeSingle()
-    setProfile(data)
+    const [{ data: p }, { data: perms }] = await Promise.all([
+      supabase.from("profiles").select("*").eq("id", userId).maybeSingle(),
+      supabase.from("user_permissions").select("*").eq("user_id", userId).maybeSingle(),
+    ])
+    setProfile(p)
+    setPermissions(perms)
   }
 
   useEffect(() => {
@@ -50,6 +52,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         })()
       } else {
         setProfile(null)
+        setPermissions(null)
       }
     })
 
@@ -69,12 +72,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   async function signUp(username: string, password: string) {
+    const trimmed = username.trim()
+    const { data: existing } = await supabase
+      .from("profiles")
+      .select("id")
+      .eq("username", trimmed)
+      .maybeSingle()
+    if (existing) {
+      return { error: "用户名已被占用" }
+    }
     const { error } = await supabase.auth.signUp({
-      email: usernameToEmail(username),
+      email: usernameToEmail(trimmed),
       password,
-      options: { data: { username: username.trim() } },
+      options: { data: { username: trimmed } },
     })
-    return { error: error?.message ?? null }
+    if (error) {
+      const msg = error.message
+      if (/already registered|already exists|duplicate/i.test(msg)) {
+        return { error: "用户名已被占用" }
+      }
+      return { error: msg }
+    }
+    return { error: null }
   }
 
   async function signOut() {
@@ -89,6 +108,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     session,
     user: session?.user ?? null,
     profile,
+    permissions,
     loading,
     isAdmin: profile?.role === "admin",
     isModerator: profile?.role === "moderator" || profile?.role === "admin",

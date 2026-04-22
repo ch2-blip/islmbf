@@ -2,14 +2,13 @@ import { useEffect, useState } from "react"
 import { useNavigate } from "react-router-dom"
 import { useAuth } from "@/contexts/auth-context"
 import { supabase } from "@/lib/supabase"
-import type { Profile, Article, Topic, Report, Announcement, SensitiveWord, Category, Board } from "@/lib/database.types"
+import type { Article, Topic, Report, Announcement, SensitiveWord, Category, Board } from "@/lib/database.types"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import {
   Select,
@@ -19,8 +18,10 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { toast } from "sonner"
-import { ArrowLeft, Shield, Users, Flag, Megaphone, TriangleAlert as AlertTriangle, FileText, MessageSquare, Plus, Trash2 } from "lucide-react"
+import { ArrowLeft, Shield, Users, Flag, Megaphone, TriangleAlert as AlertTriangle, FileText, MessageSquare, Plus, Trash2, Settings2 } from "lucide-react"
 import { timeAgo } from "@/lib/hijri"
+import { SiteSettingsPanel } from "./admin-site-panel"
+import { UsersPanelFull } from "./admin-users-panel"
 
 export function AdminPage() {
   const { isAdmin, isModerator } = useAuth()
@@ -50,7 +51,7 @@ export function AdminPage() {
       </div>
 
       <Tabs defaultValue="reports">
-        <TabsList className="w-full grid grid-cols-3 sm:grid-cols-6 h-auto">
+        <TabsList className="w-full grid grid-cols-4 sm:grid-cols-7 h-auto">
           <TabsTrigger value="reports" className="text-xs py-2">
             <Flag className="h-3.5 w-3.5 sm:mr-1" />
             <span className="hidden sm:inline">举报</span>
@@ -75,14 +76,19 @@ export function AdminPage() {
             <MessageSquare className="h-3.5 w-3.5 sm:mr-1" />
             <span className="hidden sm:inline">板块</span>
           </TabsTrigger>
+          <TabsTrigger value="site" className="text-xs py-2" disabled={!isAdmin}>
+            <Settings2 className="h-3.5 w-3.5 sm:mr-1" />
+            <span className="hidden sm:inline">站点</span>
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="reports" className="mt-4"><ReportsPanel /></TabsContent>
         <TabsContent value="content" className="mt-4"><ContentPanel /></TabsContent>
-        <TabsContent value="users" className="mt-4">{isAdmin && <UsersPanel />}</TabsContent>
+        <TabsContent value="users" className="mt-4">{isAdmin && <UsersPanelFull />}</TabsContent>
         <TabsContent value="announcements" className="mt-4">{isAdmin && <AnnouncementsPanel />}</TabsContent>
         <TabsContent value="sensitive" className="mt-4">{isAdmin && <SensitivePanel />}</TabsContent>
         <TabsContent value="taxonomy" className="mt-4">{isAdmin && <TaxonomyPanel />}</TabsContent>
+        <TabsContent value="site" className="mt-4">{isAdmin && <SiteSettingsPanel />}</TabsContent>
       </Tabs>
     </div>
   )
@@ -258,82 +264,6 @@ function ContentPanel() {
         </Card>
       </TabsContent>
     </Tabs>
-  )
-}
-
-function UsersPanel() {
-  const [users, setUsers] = useState<Profile[]>([])
-  const [q, setQ] = useState("")
-
-  async function load() {
-    const query = supabase.from("profiles").select("*").order("created_at", { ascending: false }).limit(100)
-    const { data } = q ? await query.ilike("username", `%${q}%`) : await query
-    setUsers(data ?? [])
-  }
-
-  useEffect(() => { load() }, [q])
-
-  async function setRole(id: string, role: Profile["role"]) {
-    await supabase.from("profiles").update({ role }).eq("id", id)
-    toast.success("已更新")
-    load()
-  }
-
-  async function toggleBan(id: string, current: boolean) {
-    await supabase.from("profiles").update({ is_banned: !current }).eq("id", id)
-    toast.success(!current ? "已封禁" : "已解封")
-    load()
-  }
-
-  async function toggleScholar(id: string, current: boolean) {
-    await supabase.from("profiles").update({ is_verified_scholar: !current }).eq("id", id)
-    toast.success(!current ? "已认证学者" : "已取消认证")
-    load()
-  }
-
-  return (
-    <div className="space-y-3">
-      <Input placeholder="搜索用户名..." value={q} onChange={(e) => setQ(e.target.value)} />
-      <Card className="divide-y divide-border/60">
-        {users.map((u) => (
-          <div key={u.id} className="p-4 flex items-start gap-3">
-            <Avatar className="h-10 w-10 shrink-0">
-              <AvatarImage src={u.avatar_url} />
-              <AvatarFallback className="bg-primary/10 text-primary text-xs">
-                {u.username.slice(0, 2).toUpperCase()}
-              </AvatarFallback>
-            </Avatar>
-            <div className="flex-1 min-w-0 space-y-1.5">
-              <div className="flex items-center gap-1.5 flex-wrap">
-                <span className="font-medium text-sm">{u.username}</span>
-                <Badge variant="outline" className="text-[10px]">{u.role}</Badge>
-                {u.is_banned && <Badge variant="destructive" className="text-[10px]">已封禁</Badge>}
-                {u.is_verified_scholar && <Badge className="text-[10px] bg-accent text-accent-foreground">学者</Badge>}
-              </div>
-              <div className="flex gap-1 flex-wrap">
-                <Select value={u.role} onValueChange={(v) => setRole(u.id, v as Profile["role"])}>
-                  <SelectTrigger className="h-7 w-24 text-xs">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="user">用户</SelectItem>
-                    <SelectItem value="scholar">学者</SelectItem>
-                    <SelectItem value="moderator">版主</SelectItem>
-                    <SelectItem value="admin">管理员</SelectItem>
-                  </SelectContent>
-                </Select>
-                <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => toggleScholar(u.id, u.is_verified_scholar)}>
-                  {u.is_verified_scholar ? "取消学者" : "认证学者"}
-                </Button>
-                <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => toggleBan(u.id, u.is_banned)}>
-                  {u.is_banned ? "解封" : "封禁"}
-                </Button>
-              </div>
-            </div>
-          </div>
-        ))}
-      </Card>
-    </div>
   )
 }
 

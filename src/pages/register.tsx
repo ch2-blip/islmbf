@@ -31,7 +31,11 @@ export function RegisterPage() {
     const { error } = await signUp(username.trim(), password)
     setLoading(false)
     if (error) {
-      toast.error("注册失败：" + error)
+      if (error === "用户名已被占用") {
+        toast.error("注册失败：用户名已被占用")
+      } else {
+        toast.error("注册失败：" + error)
+      }
       return
     }
     toast.success("注册成功，欢迎加入静园")

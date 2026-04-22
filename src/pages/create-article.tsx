@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react"
 import { useNavigate, useParams } from "react-router-dom"
 import { supabase } from "@/lib/supabase"
-import type { Category } from "@/lib/database.types"
+import type { Article, Category } from "@/lib/database.types"
 import { useAuth } from "@/contexts/auth-context"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -16,21 +16,29 @@ import {
 } from "@/components/ui/select"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { toast } from "sonner"
-import { ArrowLeft, FileText, ImagePlus, Info, Loader as Loader2, ShieldCheck, X } from "lucide-react"
+import { ArrowLeft, FileText, ImagePlus, Info, Loader as Loader2, ShieldCheck, Video, X } from "lucide-react"
+
+const DRAFT_LIMIT = 100
 
 export function CreateArticlePage() {
   const { id } = useParams<{ id?: string }>()
   const isEdit = !!id
   const nav = useNavigate()
-  const { user, isAdmin } = useAuth()
+  const { user, profile, isAdmin } = useAuth()
   const [categories, setCategories] = useState<Category[]>([])
   const [title, setTitle] = useState("")
   const [categoryId, setCategoryId] = useState<string>("")
   const [coverImage, setCoverImage] = useState("")
   const [content, setContent] = useState("")
+  const [videoUrl, setVideoUrl] = useState("")
+  const [existingStatus, setExistingStatus] = useState<Article["status"] | null>(null)
   const [submitting, setSubmitting] = useState(false)
+  const [savingDraft, setSavingDraft] = useState(false)
   const [uploading, setUploading] = useState(false)
+  const [siteAllowVideo, setSiteAllowVideo] = useState(false)
   const fileRef = useRef<HTMLInputElement>(null)
+
+  const canPostVideo = isAdmin || !!profile?.can_post_video || siteAllowVideo
 
   useEffect(() => {
     if (!user) {
@@ -42,6 +50,13 @@ export function CreateArticlePage() {
       .select("*")
       .order("sort_order")
       .then(({ data }) => setCategories(data ?? []))
+
+    supabase
+      .from("site_settings")
+      .select("allow_video_posts")
+      .eq("id", 1)
+      .maybeSingle()
+      .then(({ data }) => setSiteAllowVideo(!!data?.allow_video_posts))
 
     if (isEdit && id) {
       supabase
@@ -55,6 +70,8 @@ export function CreateArticlePage() {
             setCategoryId(data.category_id ?? "")
             setCoverImage(data.cover_image)
             setContent(data.content)
+            setVideoUrl(data.video_url ?? "")
+            setExistingStatus(data.status)
           }
         })
     }
@@ -87,28 +104,87 @@ export function CreateArticlePage() {
     toast.success("封面已上传")
   }
 
-  async function submit() {
-    if (!user) return
-    if (title.trim().length < 3) {
-      toast.error("标题至少 3 个字符")
-      return
+  function validate(forDraft: boolean): boolean {
+    if (title.trim().length < 2) {
+      toast.error("标题至少 2 个字符")
+      return false
     }
-    if (content.trim().length < 20) {
+    if (!forDraft && content.trim().length < 20) {
       toast.error("文章内容过短，请至少 20 个字符")
-      return
+      return false
     }
-    setSubmitting(true)
+    if (videoUrl.trim() && !/^https?:\/\//i.test(videoUrl.trim())) {
+      toast.error("视频链接需以 http(s):// 开头")
+      return false
+    }
+    return true
+  }
 
-    const status = isAdmin ? "published" : "pending"
+  function basePayload() {
     const excerptAuto = content.trim().replace(/\s+/g, " ").slice(0, 80)
-
-    const payload = {
+    return {
       title: title.trim(),
       category_id: categoryId || null,
       cover_image: coverImage.trim(),
       excerpt: excerptAuto,
       content: content.trim(),
+      video_url: videoUrl.trim(),
+    }
+  }
+
+  async function saveDraft() {
+    if (!user) return
+    if (!validate(true)) return
+    setSavingDraft(true)
+
+    if (isEdit && id) {
+      const { error } = await supabase
+        .from("articles")
+        .update({ ...basePayload(), status: "draft" })
+        .eq("id", id)
+      setSavingDraft(false)
+      if (error) {
+        toast.error("保存失败：" + error.message)
+        return
+      }
+      toast.success("草稿已保存")
+      nav("/me/drafts")
+      return
+    }
+
+    const { count } = await supabase
+      .from("articles")
+      .select("id", { count: "exact", head: true })
+      .eq("author_id", user.id)
+      .eq("status", "draft")
+    if ((count ?? 0) >= DRAFT_LIMIT) {
+      setSavingDraft(false)
+      toast.error(`草稿数量已达上限（${DRAFT_LIMIT} 份），请先删除一些`)
+      return
+    }
+
+    const { error } = await supabase
+      .from("articles")
+      .insert({ ...basePayload(), status: "draft", author_id: user.id })
+    setSavingDraft(false)
+    if (error) {
+      toast.error("保存失败：" + error.message)
+      return
+    }
+    toast.success("草稿已保存")
+    nav("/me/drafts")
+  }
+
+  async function submit() {
+    if (!user) return
+    if (!validate(false)) return
+    setSubmitting(true)
+
+    const status = isAdmin ? "published" : "pending"
+    const payload = {
+      ...basePayload(),
       status,
+      ...(status === "published" ? { published_at: new Date().toISOString() } : {}),
     }
 
     if (isEdit && id) {
@@ -118,8 +194,8 @@ export function CreateArticlePage() {
         toast.error("保存失败：" + error.message)
         return
       }
-      toast.success(isAdmin ? "已更新并发布" : "已更新，等待审核")
-      nav(`/article/${id}`)
+      toast.success(isAdmin ? "已发布" : "已提交，等待审核")
+      nav(isAdmin ? `/article/${id}` : "/me")
     } else {
       const { data, error } = await supabase
         .from("articles")
@@ -141,6 +217,15 @@ export function CreateArticlePage() {
     }
   }
 
+  const isDraftEdit = existingStatus === "draft"
+  const publishLabel = submitting
+    ? "提交中..."
+    : isEdit && !isDraftEdit
+      ? "保存修改"
+      : isAdmin
+        ? "发布文章"
+        : "提交审核"
+
   return (
     <div className="px-4 pt-4 pb-8 space-y-4">
       <button
@@ -155,17 +240,19 @@ export function CreateArticlePage() {
           <FileText className="h-4 w-4" />
         </div>
         <div>
-          <h1 className="text-lg font-serif-cn font-semibold">{isEdit ? "编辑文章" : "写文章"}</h1>
+          <h1 className="text-lg font-serif-cn font-semibold">
+            {isEdit ? (isDraftEdit ? "编辑草稿" : "编辑文章") : "写文章"}
+          </h1>
           <p className="text-xs text-muted-foreground">长文、经训释义、生活感悟</p>
         </div>
       </div>
 
-      {!isAdmin && (
+      {!isAdmin && !isDraftEdit && (
         <Alert className="border-accent/40 bg-accent/10">
           <ShieldCheck className="h-4 w-4 text-accent-foreground" />
           <AlertTitle className="text-sm font-medium">文章将经过审核后发布</AlertTitle>
           <AlertDescription className="text-xs leading-relaxed text-muted-foreground">
-            为了维护社区的内容氛围，用户提交的文章会先进入审核队列，由管理员确认后方可公开展示。您可以在"我的文章"中查看审核状态。
+            为了维护社区的内容氛围，用户提交的文章会先进入审核队列，由管理员确认后方可公开展示。可以先保存为草稿随时继续编辑。
           </AlertDescription>
         </Alert>
       )}
@@ -257,6 +344,21 @@ export function CreateArticlePage() {
           )}
         </div>
 
+        {canPostVideo && (
+          <div className="space-y-2">
+            <Label htmlFor="video" className="flex items-center gap-1.5">
+              <Video className="h-3.5 w-3.5" />
+              视频链接（可选）
+            </Label>
+            <Input
+              id="video"
+              value={videoUrl}
+              onChange={(e) => setVideoUrl(e.target.value)}
+              placeholder="https://... 可粘贴 MP4 / 视频站链接"
+            />
+          </div>
+        )}
+
         <div className="space-y-2">
           <Label htmlFor="content">正文</Label>
           <Textarea
@@ -272,18 +374,19 @@ export function CreateArticlePage() {
           </p>
         </div>
 
-        <div className="flex gap-2 sticky bottom-24 bg-background/80 backdrop-blur-sm py-3 -mx-4 px-4 border-t border-border/60 justify-end">
-          <Button variant="outline" onClick={() => nav(-1)} disabled={submitting}>
+        <div className="flex flex-wrap gap-2 sticky bottom-24 bg-background/80 backdrop-blur-sm py-3 -mx-4 px-4 border-t border-border/60 justify-end">
+          <Button variant="outline" onClick={() => nav(-1)} disabled={submitting || savingDraft}>
             取消
           </Button>
-          <Button onClick={submit} disabled={submitting || uploading}>
-            {submitting
-              ? "提交中..."
-              : isEdit
-                ? "保存修改"
-                : isAdmin
-                  ? "发布文章"
-                  : "提交审核"}
+          <Button
+            variant="secondary"
+            onClick={saveDraft}
+            disabled={submitting || savingDraft || uploading}
+          >
+            {savingDraft ? "保存中..." : "保存草稿"}
+          </Button>
+          <Button onClick={submit} disabled={submitting || savingDraft || uploading}>
+            {publishLabel}
           </Button>
         </div>
       </div>
