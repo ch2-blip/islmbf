@@ -9,7 +9,7 @@ import { Megaphone, Sparkles } from "lucide-react"
 import { Link, useSearchParams } from "react-router-dom"
 import { timeAgo } from "@/lib/hijri"
 import { getCache, setCache } from "@/lib/page-cache"
-import { GeometricPattern, EightPointStar } from "@/components/geometric-pattern"
+import { HomeHero } from "@/components/home-hero"
 
 type HomeCache = {
   articles: Article[]
@@ -78,34 +78,7 @@ export function HomePage() {
 
   return (
     <div className="space-y-4 pb-2">
-      <section className="relative mx-4 mt-4 overflow-hidden rounded-2xl shadow-sm ring-1 ring-primary/15">
-        <div className="absolute inset-0 bg-gradient-to-br from-primary via-[color-mix(in_oklab,var(--primary)_55%,var(--accent))] to-accent" />
-        <GeometricPattern className="absolute inset-0 h-full w-full text-primary-foreground/25" />
-        <div
-          aria-hidden
-          className="absolute -right-6 -top-6 h-28 w-28 rounded-full bg-primary-foreground/15 blur-2xl"
-        />
-        <div
-          aria-hidden
-          className="absolute -left-8 bottom-0 h-24 w-24 rounded-full bg-accent/30 blur-2xl"
-        />
-        <div className="relative flex items-center gap-3 px-5 py-5">
-          <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-primary-foreground/15 backdrop-blur-sm ring-1 ring-primary-foreground/25 text-primary-foreground">
-            <EightPointStar size={26} />
-          </span>
-          <div className="min-w-0 flex-1 text-primary-foreground">
-            <div className="text-[11px] uppercase tracking-[0.22em] opacity-80">
-              AS-SALĀMU ‘ALAYKUM
-            </div>
-            <div className="font-serif-cn text-lg font-semibold leading-tight mt-0.5">
-              愿平安与宁静与你同在
-            </div>
-            <div className="text-[11px] opacity-85 mt-0.5">
-              在静园，以经训润心，以清语会友
-            </div>
-          </div>
-        </div>
-      </section>
+      <HomeHero />
 
       <div className="px-4 space-y-4">
       {announcement && (

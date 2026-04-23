@@ -25,11 +25,35 @@ export interface Profile {
   updated_at: string
 }
 
+export type HeroSize = "compact" | "standard" | "tall"
+export type HeroVariant = "auto" | "jade" | "amber" | "teal" | "sunset" | "mono"
+export type HeroPattern = "geometric" | "subtle" | "none"
+export type ThemePresetKey =
+  | "jade-garden"
+  | "warm-sand"
+  | "morning-mist"
+  | "pure-moonlight"
+  | "sandalwood"
+  | "celadon-sky"
+  | "autumn-harvest"
+
 export interface SiteSettings {
   id: number
   site_name: string
   site_icon_url: string
   allow_video_posts: boolean
+  theme_preset: ThemePresetKey
+  hero_enabled: boolean
+  hero_eyebrow: string
+  hero_title: string
+  hero_subtitle: string
+  hero_size: HeroSize
+  hero_variant: HeroVariant
+  hero_glow: boolean
+  hero_pattern: HeroPattern
+  footer_text: string
+  registration_open: boolean
+  icp_text: string
   updated_at: string
 }
 
