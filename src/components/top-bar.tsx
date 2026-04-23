@@ -45,10 +45,10 @@ export function TopBar() {
   }, [])
 
   return (
-    <header className="sticky top-0 z-40 border-b border-border/60 bg-background/85 backdrop-blur-md">
+    <header className="sticky top-0 z-40 border-b border-border/50 bg-gradient-to-b from-card/90 via-card/80 to-card/60 backdrop-blur-md shadow-[0_1px_0_0_color-mix(in_oklab,var(--primary)_8%,transparent)]">
       <div className="mx-auto flex max-w-3xl items-center justify-between gap-2 px-4 py-3">
         <Link to="/" className="flex items-center gap-2 group">
-          <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary text-primary-foreground shadow-sm group-hover:shadow-md transition-shadow overflow-hidden">
+          <span className="relative flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-primary to-[color-mix(in_oklab,var(--primary)_60%,var(--accent))] text-primary-foreground shadow-md shadow-primary/30 ring-1 ring-primary/20 group-hover:shadow-lg group-hover:shadow-primary/40 transition-all overflow-hidden">
             {siteIcon ? (
               <img src={siteIcon} alt={siteName} className="h-full w-full object-cover" />
             ) : (

@@ -5,6 +5,7 @@ import type { Article } from "@/lib/database.types"
 import { UserAvatar } from "@/components/user-avatar"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { Card } from "@/components/ui/card"
 import { CommentSection } from "@/components/comment-section"
 import { getCache, setCache } from "@/lib/page-cache"
 import { Heart, Bookmark, Share2, ArrowLeft, Trash2, Pencil } from "lucide-react"
@@ -152,14 +153,15 @@ export function ArticleDetailPage() {
   const canEdit = user?.id === article.author_id || isModerator
 
   return (
-    <article className="px-4 pt-4 pb-8">
+    <article className="px-4 pt-4 pb-8 space-y-4">
       <button
         onClick={() => nav(-1)}
-        className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground mb-4"
+        className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
       >
         <ArrowLeft className="h-4 w-4" /> 返回
       </button>
 
+      <Card className="p-5 sm:p-7 shadow-sm">
       <div className="flex items-center gap-2 mb-3 flex-wrap">
         {article.category && (
           <Badge variant="outline" className="border-primary/30 text-primary">
@@ -215,7 +217,7 @@ export function ArticleDetailPage() {
 
       <ArabesqueDivider className="my-8" />
 
-      <div className="flex items-center justify-center gap-2 mb-8">
+      <div className="flex items-center justify-center gap-2">
         <Button
           variant={liked ? "default" : "outline"}
           size="sm"
@@ -239,8 +241,11 @@ export function ArticleDetailPage() {
           分享
         </Button>
       </div>
+      </Card>
 
-      <CommentSection targetType="article" targetId={article.id} />
+      <Card className="p-5 sm:p-6 shadow-sm">
+        <CommentSection targetType="article" targetId={article.id} />
+      </Card>
     </article>
   )
 }
