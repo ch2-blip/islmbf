@@ -15,7 +15,7 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { toast } from "sonner"
-import { Upload, Check, Palette, Sparkles, FileSignature, ShieldCheck, Link as LinkIcon } from "lucide-react"
+import { Upload, Check, Palette, Sparkles, Signature as FileSignature, ShieldCheck, Link as LinkIcon } from "lucide-react"
 import { THEME_PRESETS, THEME_PRESET_ORDER, applyThemePreset } from "@/lib/theme-presets"
 
 const DEFAULTS: Omit<SiteSettings, "id" | "updated_at"> = {
