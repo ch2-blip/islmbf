@@ -2,7 +2,7 @@ import { useEffect, useState } from "react"
 import { useParams, Link, useNavigate } from "react-router-dom"
 import { supabase } from "@/lib/supabase"
 import type { Article } from "@/lib/database.types"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { UserAvatar } from "@/components/user-avatar"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { CommentSection } from "@/components/comment-section"
@@ -175,12 +175,7 @@ export function ArticleDetailPage() {
 
       <div className="flex items-center justify-between gap-4 pb-5 mb-5 border-b border-border/60">
         <Link to={`/user/${article.author?.username}`} className="flex items-center gap-2.5 min-w-0">
-          <Avatar className="h-10 w-10 border border-border">
-            <AvatarImage src={article.author?.avatar_url} />
-            <AvatarFallback className="bg-primary/10 text-primary">
-              {article.author?.username?.slice(0, 2).toUpperCase() ?? "U"}
-            </AvatarFallback>
-          </Avatar>
+          <UserAvatar profile={article.author} size="md" />
           <div className="min-w-0">
             <div className="text-sm font-medium truncate">{article.author?.username}</div>
             <div className="text-xs text-muted-foreground">

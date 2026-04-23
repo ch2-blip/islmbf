@@ -1,6 +1,6 @@
 import { Link } from "react-router-dom"
 import type { Topic } from "@/lib/database.types"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { UserAvatar } from "@/components/user-avatar"
 import { MessageCircle, Pin, Lock } from "lucide-react"
 import { timeAgo } from "@/lib/hijri"
 import { Badge } from "@/components/ui/badge"
@@ -12,12 +12,7 @@ export function TopicCard({ topic }: { topic: Topic }) {
       className="block group border-b border-border/60 last:border-b-0 hover:bg-muted/40 transition-colors"
     >
       <div className="flex items-start gap-3 p-4">
-        <Avatar className="h-10 w-10 shrink-0 border border-border">
-          <AvatarImage src={topic.author?.avatar_url} />
-          <AvatarFallback className="bg-primary/10 text-primary text-xs font-medium">
-            {topic.author?.username?.slice(0, 2).toUpperCase() ?? "U"}
-          </AvatarFallback>
-        </Avatar>
+        <UserAvatar profile={topic.author} size="md" className="shrink-0" />
         <div className="flex-1 min-w-0">
           <div className="flex items-start gap-2">
             <div className="flex-1 min-w-0">

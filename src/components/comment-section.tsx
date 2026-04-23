@@ -2,7 +2,7 @@ import { useEffect, useState } from "react"
 import { supabase } from "@/lib/supabase"
 import type { Comment } from "@/lib/database.types"
 import { useAuth } from "@/contexts/auth-context"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { UserAvatar, roleBadgeText } from "@/components/user-avatar"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { timeAgo } from "@/lib/hijri"
@@ -214,23 +214,13 @@ function CommentItem({
 }) {
   return (
     <div className="flex gap-3">
-      <Avatar className="h-9 w-9 shrink-0 border border-border">
-        <AvatarImage src={comment.author?.avatar_url} />
-        <AvatarFallback className="bg-primary/10 text-primary text-xs">
-          {comment.author?.username?.slice(0, 2).toUpperCase() ?? "U"}
-        </AvatarFallback>
-      </Avatar>
+      <UserAvatar profile={comment.author} size="sm" className="shrink-0" />
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2 flex-wrap mb-1">
           <span className="text-sm font-medium text-foreground">{comment.author?.username}</span>
-          {comment.author?.role === "admin" && (
+          {roleBadgeText(comment.author) && (
             <span className="inline-flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded bg-primary/10 text-primary">
-              <Shield className="h-2.5 w-2.5" /> 管理员
-            </span>
-          )}
-          {comment.author?.role === "moderator" && (
-            <span className="inline-flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded bg-accent/10 text-accent-foreground">
-              <Shield className="h-2.5 w-2.5" /> 版主
+              <Shield className="h-2.5 w-2.5" /> {roleBadgeText(comment.author)}
             </span>
           )}
           {comment.author?.is_verified_scholar && (
@@ -260,12 +250,7 @@ function CommentItem({
           <div className="mt-3 space-y-3 pl-4 border-l-2 border-border/60">
             {replies.map((r) => (
               <div key={r.id} className="flex gap-2.5">
-                <Avatar className="h-7 w-7 shrink-0">
-                  <AvatarImage src={r.author?.avatar_url} />
-                  <AvatarFallback className="bg-muted text-[10px]">
-                    {r.author?.username?.slice(0, 2).toUpperCase() ?? "U"}
-                  </AvatarFallback>
-                </Avatar>
+                <UserAvatar profile={r.author} size="xs" className="shrink-0" />
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-1.5 flex-wrap">
                     <span className="text-xs font-medium">{r.author?.username}</span>

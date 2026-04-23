@@ -3,7 +3,7 @@ import { useAuth } from "@/contexts/auth-context"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { UserAvatar, roleBadgeText } from "@/components/user-avatar"
-import { User, Bookmark, Bell, Settings, Shield, LogOut, ChevronRight, Heart, File as FileEdit } from "lucide-react"
+import { User, Bookmark, Bell, Shield, LogOut, ChevronRight, Heart, File as FileEdit } from "lucide-react"
 import { HijriDate } from "@/components/hijri-date"
 
 export function MePage() {
@@ -28,7 +28,6 @@ export function MePage() {
     { label: "我的收藏", icon: Bookmark, to: "/me/bookmarks" },
     { label: "我的点赞", icon: Heart, to: "/me/likes" },
     { label: "消息通知", icon: Bell, to: "/notifications" },
-    { label: "账号设置", icon: Settings, to: "/settings" },
   ]
 
   if (isModerator) {

@@ -2,7 +2,7 @@ import { useEffect, useState } from "react"
 import { useParams, Link, useNavigate } from "react-router-dom"
 import { supabase } from "@/lib/supabase"
 import type { Topic } from "@/lib/database.types"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { UserAvatar } from "@/components/user-avatar"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { CommentSection } from "@/components/comment-section"
@@ -150,12 +150,7 @@ export function TopicDetailPage() {
 
         <div className="flex items-center justify-between gap-4 mb-5 pb-4 border-b border-border/60">
           <Link to={`/user/${topic.author?.username}`} className="flex items-center gap-2.5 min-w-0">
-            <Avatar className="h-9 w-9 border border-border">
-              <AvatarImage src={topic.author?.avatar_url} />
-              <AvatarFallback className="bg-primary/10 text-primary text-xs">
-                {topic.author?.username?.slice(0, 2).toUpperCase() ?? "U"}
-              </AvatarFallback>
-            </Avatar>
+            <UserAvatar profile={topic.author} size="sm" />
             <div className="min-w-0">
               <div className="text-sm font-medium truncate">{topic.author?.username}</div>
               <div className="text-xs text-muted-foreground">

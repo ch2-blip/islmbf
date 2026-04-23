@@ -1,6 +1,6 @@
 import { Link } from "react-router-dom"
 import type { Article } from "@/lib/database.types"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { UserAvatar } from "@/components/user-avatar"
 import { Card } from "@/components/ui/card"
 import { Eye, MessageCircle, Heart, Pin } from "lucide-react"
 import { timeAgo } from "@/lib/hijri"
@@ -46,12 +46,7 @@ export function ArticleCard({ article }: { article: Article }) {
           )}
           <div className="mt-4 flex items-center justify-between text-xs text-muted-foreground">
             <div className="flex items-center gap-2 min-w-0">
-              <Avatar className="h-6 w-6 border border-border">
-                <AvatarImage src={article.author?.avatar_url} />
-                <AvatarFallback className="text-[10px] bg-primary/10 text-primary">
-                  {article.author?.username?.slice(0, 2).toUpperCase() ?? "U"}
-                </AvatarFallback>
-              </Avatar>
+              <UserAvatar profile={article.author} size="xs" />
               <span className="truncate max-w-[120px]">{article.author?.username}</span>
               <span className="text-border">·</span>
               <span>{timeAgo(article.published_at)}</span>

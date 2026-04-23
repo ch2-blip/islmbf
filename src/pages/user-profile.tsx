@@ -2,9 +2,10 @@ import { useEffect, useState } from "react"
 import { useParams, useNavigate } from "react-router-dom"
 import { supabase } from "@/lib/supabase"
 import type { Profile, Article, Topic } from "@/lib/database.types"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { UserAvatar, roleBadgeText } from "@/components/user-avatar"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
+import { Dialog, DialogContent } from "@/components/ui/dialog"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { ArticleCard } from "@/components/article-card"
 import { TopicCard } from "@/components/topic-card"
@@ -20,6 +21,7 @@ export function UserProfilePage() {
   const [articles, setArticles] = useState<Article[]>([])
   const [topics, setTopics] = useState<Topic[]>([])
   const [loading, setLoading] = useState(true)
+  const [avatarOpen, setAvatarOpen] = useState(false)
 
   useEffect(() => {
     if (!username) return
@@ -82,23 +84,20 @@ export function UserProfilePage() {
 
       <Card className="p-5">
         <div className="flex items-start gap-4">
-          <Avatar className="h-16 w-16 border-2 border-background ring-2 ring-primary/20">
-            <AvatarImage src={profile.avatar_url} />
-            <AvatarFallback className="bg-primary/10 text-primary font-semibold">
-              {profile.username.slice(0, 2).toUpperCase()}
-            </AvatarFallback>
-          </Avatar>
+          <button
+            type="button"
+            onClick={() => setAvatarOpen(true)}
+            className="shrink-0 cursor-zoom-in rounded-full focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            aria-label="查看头像大图"
+          >
+            <UserAvatar profile={profile} size="xl" />
+          </button>
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-1.5 flex-wrap mb-1">
               <h1 className="text-lg font-semibold">{profile.username}</h1>
-              {profile.role === "admin" && (
+              {roleBadgeText(profile) && (
                 <span className="inline-flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded bg-primary/10 text-primary">
-                  <Shield className="h-2.5 w-2.5" /> 管理员
-                </span>
-              )}
-              {profile.role === "moderator" && (
-                <span className="inline-flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded bg-accent/20 text-accent-foreground">
-                  <Shield className="h-2.5 w-2.5" /> 版主
+                  <Shield className="h-2.5 w-2.5" /> {roleBadgeText(profile)}
                 </span>
               )}
               {profile.is_verified_scholar && (
@@ -162,6 +161,27 @@ export function UserProfilePage() {
           )}
         </TabsContent>
       </Tabs>
+
+      <Dialog open={avatarOpen} onOpenChange={setAvatarOpen}>
+        <DialogContent className="max-w-md p-0 border-0 bg-transparent shadow-none [&>button]:bg-background/70 [&>button]:rounded-full [&>button]:p-1.5">
+          <div className="flex flex-col items-center gap-3 p-2">
+            {profile.avatar_url ? (
+              <img
+                src={profile.avatar_url}
+                alt={profile.username}
+                className="w-full max-h-[70vh] object-contain rounded-xl shadow-2xl ring-1 ring-border/60 bg-card"
+              />
+            ) : (
+              <div className="w-64 h-64 flex items-center justify-center rounded-xl bg-card text-primary font-serif-cn font-semibold text-6xl shadow-2xl ring-1 ring-border/60">
+                {profile.username.slice(0, 2).toUpperCase()}
+              </div>
+            )}
+            <div className="rounded-full bg-background/85 backdrop-blur px-4 py-1.5 text-sm font-medium shadow">
+              {profile.username}
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

@@ -3,7 +3,7 @@ import { Link, useNavigate } from "react-router-dom"
 import { useAuth } from "@/contexts/auth-context"
 import { supabase } from "@/lib/supabase"
 import { Button } from "@/components/ui/button"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { UserAvatar } from "@/components/user-avatar"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -116,12 +116,7 @@ export function TopBar() {
                   className="gap-2 pr-2"
                   aria-label="我的"
                 >
-                  <Avatar className="h-6 w-6 border border-border">
-                    <AvatarImage src={profile?.avatar_url} alt={profile?.username} />
-                    <AvatarFallback className="bg-primary/10 text-primary text-[10px] font-medium">
-                      {profile?.username?.slice(0, 2).toUpperCase() ?? "U"}
-                    </AvatarFallback>
-                  </Avatar>
+                  <UserAvatar profile={profile} size="xs" />
                   <span className="hidden sm:inline text-sm">我的</span>
                 </Button>
               </DropdownMenuTrigger>
@@ -136,9 +131,9 @@ export function TopBar() {
                   <UserIcon className="mr-2 h-4 w-4" />
                   个人中心
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => nav("/me/articles")}>
+                <DropdownMenuItem onClick={() => nav("/me/drafts")}>
                   <FileText className="mr-2 h-4 w-4" />
-                  我的文章
+                  我的草稿
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => nav("/me/bookmarks")}>
                   <Bookmark className="mr-2 h-4 w-4" />
