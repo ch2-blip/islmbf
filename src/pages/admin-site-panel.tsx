@@ -1,13 +1,18 @@
 import { useEffect, useRef, useState } from "react"
 import { supabase } from "@/lib/supabase"
-import type { SiteSettings } from "@/lib/database.types"
+import type { SiteSettings, ThemePresetKey } from "@/lib/database.types"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Switch } from "@/components/ui/switch"
 import { toast } from "sonner"
-import { Upload } from "lucide-react"
+import { Check, Upload } from "lucide-react"
+import {
+  THEME_PRESETS,
+  THEME_PRESET_ORDER,
+  applyThemePreset,
+} from "@/lib/theme-presets"
 
 export function SiteSettingsPanel() {
   const fileRef = useRef<HTMLInputElement>(null)
@@ -15,6 +20,7 @@ export function SiteSettingsPanel() {
   const [name, setName] = useState("")
   const [iconUrl, setIconUrl] = useState("")
   const [allowVideo, setAllowVideo] = useState(false)
+  const [themePreset, setThemePreset] = useState<ThemePresetKey>("warm-sand")
   const [uploading, setUploading] = useState(false)
   const [saving, setSaving] = useState(false)
 
@@ -29,7 +35,15 @@ export function SiteSettingsPanel() {
       setName(data.site_name)
       setIconUrl(data.site_icon_url)
       setAllowVideo(data.allow_video_posts)
+      if (data.theme_preset && data.theme_preset in THEME_PRESETS) {
+        setThemePreset(data.theme_preset as ThemePresetKey)
+      }
     }
+  }
+
+  function pickTheme(key: ThemePresetKey) {
+    setThemePreset(key)
+    applyThemePreset(key)
   }
 
   async function uploadIcon(e: React.ChangeEvent<HTMLInputElement>) {
@@ -64,6 +78,7 @@ export function SiteSettingsPanel() {
         site_name: name,
         site_icon_url: iconUrl,
         allow_video_posts: allowVideo,
+        theme_preset: themePreset,
         updated_at: new Date().toISOString(),
       })
       .eq("id", 1)
@@ -126,9 +141,60 @@ export function SiteSettingsPanel() {
           <Switch checked={allowVideo} onCheckedChange={setAllowVideo} />
         </div>
 
-        <Button onClick={save} disabled={saving}>
+        <Button onClick={save} disabled={saving} className="w-full">
           {saving ? "保存中..." : "保存设置"}
         </Button>
+      </Card>
+
+      <Card className="p-4 space-y-3">
+        <div>
+          <Label className="text-base">主题配色</Label>
+          <p className="text-xs text-muted-foreground mt-0.5">
+            选择站点整体配色。点击即可实时预览，点上方"保存设置"后对所有访客生效
+          </p>
+        </div>
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+          {THEME_PRESET_ORDER.map((key) => {
+            const p = THEME_PRESETS[key]
+            const active = themePreset === key
+            return (
+              <button
+                key={key}
+                type="button"
+                onClick={() => pickTheme(key)}
+                className={`relative text-left rounded-lg border p-2.5 transition-all ${
+                  active
+                    ? "border-primary ring-2 ring-primary/30 shadow-sm"
+                    : "border-border/70 hover:border-primary/40"
+                }`}
+              >
+                <div
+                  className="flex h-16 w-full overflow-hidden rounded-md ring-1 ring-border/50"
+                  style={{ background: p.swatch.bg }}
+                >
+                  <div className="flex-1" style={{ background: p.swatch.card }} />
+                  <div className="w-5" style={{ background: p.swatch.primary }} />
+                  <div className="w-5" style={{ background: p.swatch.accent }} />
+                </div>
+                <div className="mt-2 flex items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <div className="text-sm font-serif-cn font-medium truncate">
+                      {p.label}
+                    </div>
+                    <div className="text-[10px] text-muted-foreground line-clamp-2 leading-snug">
+                      {p.description}
+                    </div>
+                  </div>
+                  {active && (
+                    <span className="shrink-0 flex h-5 w-5 items-center justify-center rounded-full bg-primary text-primary-foreground">
+                      <Check className="h-3 w-3" />
+                    </span>
+                  )}
+                </div>
+              </button>
+            )
+          })}
+        </div>
       </Card>
 
       {settings && (

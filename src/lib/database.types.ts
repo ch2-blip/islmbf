@@ -5,6 +5,14 @@ export type ReactionType = "like" | "bookmark"
 export type TargetType = "article" | "topic" | "comment"
 export type AvatarShape = "circle" | "square" | "rounded"
 export type HaloStyle = "none" | "gold" | "emerald" | "rose" | "sky"
+export type ThemePresetKey =
+  | "warm-sand"
+  | "fresh-mint"
+  | "moss-pine"
+  | "cream-parchment"
+  | "ink-ember"
+  | "celadon-butter"
+  | "stone-burgundy"
 
 export interface Profile {
   id: string
@@ -30,6 +38,7 @@ export interface SiteSettings {
   site_name: string
   site_icon_url: string
   allow_video_posts: boolean
+  theme_preset: ThemePresetKey
   updated_at: string
 }
 
