@@ -121,8 +121,8 @@ export function CreateArticlePage() {
       toast.error("请选择视频文件")
       return
     }
-    if (file.size > 200 * 1024 * 1024) {
-      toast.error("视频不能超过 200MB")
+    if (file.size > 500 * 1024 * 1024) {
+      toast.error("视频不能超过 500MB")
       return
     }
     setUploadingVideo(true)
@@ -438,7 +438,7 @@ export function CreateArticlePage() {
                     {uploadingVideo ? "上传中..." : "本地上传视频"}
                   </Button>
                   <span className="text-[10px] text-muted-foreground">
-                    管理员限定 · 支持 MP4 / WebM，小于 200MB
+                    管理员限定 · 支持 MP4 / WebM，小于 500MB
                   </span>
                 </div>
                 {videoUrl && (

@@ -187,7 +187,7 @@ export function SiteSettingsPanel() {
   }
 
   return (
-    <div className="space-y-4 pb-24">
+    <div className="space-y-4 pb-6">
       <Card className="p-4 space-y-4">
         <div className="space-y-2">
           <Label>网站名称</Label>
@@ -448,10 +448,13 @@ export function SiteSettingsPanel() {
         </p>
       )}
 
-      <div className="fixed bottom-16 left-0 right-0 z-20 border-t border-border/60 bg-background/95 backdrop-blur px-4 py-3">
-        <Button onClick={save} disabled={saving} className="w-full">
+      <div className="pt-2">
+        <Button onClick={save} disabled={saving} size="lg" className="w-full">
           {saving ? "保存中..." : "保存全部设置"}
         </Button>
+        <p className="mt-2 text-center text-[11px] text-muted-foreground">
+          修改主题会实时预览，点击上方按钮后才对所有访客生效
+        </p>
       </div>
     </div>
   )

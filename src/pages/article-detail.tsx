@@ -208,6 +208,19 @@ export function ArticleDetailPage() {
         </div>
       )}
 
+      {article.video_url && (
+        <div className="mb-6 overflow-hidden rounded-lg bg-foreground/90 ring-1 ring-border/60">
+          <video
+            src={article.video_url}
+            controls
+            playsInline
+            preload="metadata"
+            poster={article.cover_image || undefined}
+            className="block w-full h-auto max-h-[85vh] bg-foreground"
+          />
+        </div>
+      )}
+
       {article.excerpt_enabled && article.excerpt && (
         <p className="text-base text-muted-foreground italic border-l-2 border-accent pl-4 mb-6 font-serif-cn leading-relaxed whitespace-pre-wrap">
           {article.excerpt}
