@@ -7,11 +7,15 @@ import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { toast } from "sonner"
 import { EightPointStar } from "@/components/geometric-pattern"
+import { useSiteSettings } from "@/contexts/site-settings-context"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import { Lock } from "lucide-react"
 
 const USERNAME_RE = /^[a-zA-Z0-9_\u4e00-\u9fa5]{2,20}$/
 
 export function RegisterPage() {
   const { signUp } = useAuth()
+  const { settings } = useSiteSettings()
   const nav = useNavigate()
   const [username, setUsername] = useState("")
   const [password, setPassword] = useState("")
@@ -55,6 +59,15 @@ export function RegisterPage() {
           </div>
         </Link>
 
+        {!settings.registration_open ? (
+          <Alert className="border-accent/40 bg-accent/10">
+            <Lock className="h-4 w-4" />
+            <AlertTitle>注册已关闭</AlertTitle>
+            <AlertDescription className="text-xs leading-relaxed text-muted-foreground">
+              当前站点暂未开放新用户注册，请稍后再来或联系管理员。
+            </AlertDescription>
+          </Alert>
+        ) : (
         <Card className="border-border/70 shadow-sm">
           <CardHeader className="space-y-1 text-center">
             <CardTitle className="font-serif-cn">创建账号</CardTitle>
@@ -100,6 +113,7 @@ export function RegisterPage() {
             </div>
           </CardContent>
         </Card>
+        )}
 
         <div className="text-center">
           <Link to="/" className="text-xs text-muted-foreground hover:text-foreground">

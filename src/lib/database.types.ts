@@ -13,6 +13,9 @@ export type ThemePresetKey =
   | "ink-ember"
   | "celadon-butter"
   | "stone-burgundy"
+export type HeroSize = "compact" | "standard" | "grand"
+export type HeroVariant = "auto" | "jade" | "amber" | "ink" | "teal" | "ember" | "mono"
+export type HeroPattern = "geometric" | "subtle" | "stars" | "none"
 
 export interface Profile {
   id: string
@@ -39,6 +42,17 @@ export interface SiteSettings {
   site_icon_url: string
   allow_video_posts: boolean
   theme_preset: ThemePresetKey
+  hero_enabled: boolean
+  hero_eyebrow: string
+  hero_title: string
+  hero_subtitle: string
+  hero_size: HeroSize
+  hero_variant: HeroVariant
+  hero_glow: boolean
+  hero_pattern: HeroPattern
+  footer_text: string
+  registration_open: boolean
+  icp_text: string
   updated_at: string
 }
 
@@ -88,6 +102,8 @@ export interface Article {
   comment_count: number
   published_at: string
   video_url: string
+  excerpt_enabled: boolean
+  cover_focal_y: number
   created_at: string
   updated_at: string
   author?: Profile

@@ -198,15 +198,18 @@ export function ArticleDetailPage() {
       </div>
 
       {article.cover_image && (
-        <img
-          src={article.cover_image}
-          alt={article.title}
-          className="w-full rounded-lg mb-6 aspect-[16/9] object-cover"
-        />
+        <div className="mb-6 overflow-hidden rounded-lg bg-muted">
+          <img
+            src={article.cover_image}
+            alt={article.title}
+            className="block w-full h-auto max-h-[85vh] object-contain"
+            loading="lazy"
+          />
+        </div>
       )}
 
-      {article.excerpt && (
-        <p className="text-base text-muted-foreground italic border-l-2 border-accent pl-4 mb-6 font-serif-cn leading-relaxed">
+      {article.excerpt_enabled && article.excerpt && (
+        <p className="text-base text-muted-foreground italic border-l-2 border-accent pl-4 mb-6 font-serif-cn leading-relaxed whitespace-pre-wrap">
           {article.excerpt}
         </p>
       )}

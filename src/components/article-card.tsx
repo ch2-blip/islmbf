@@ -16,6 +16,9 @@ export function ArticleCard({ article }: { article: Article }) {
               src={article.cover_image}
               alt={article.title}
               className="h-full w-full object-cover group-hover:scale-105 transition-transform duration-500"
+              style={{
+                objectPosition: `center ${typeof article.cover_focal_y === "number" ? article.cover_focal_y : 50}%`,
+              }}
               loading="lazy"
             />
             {article.is_featured && (

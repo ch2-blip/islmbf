@@ -1,5 +1,6 @@
 import { Outlet } from "react-router-dom"
 import { TopBar } from "./top-bar"
+import { SiteFooter } from "./site-footer"
 
 export function Layout() {
   return (
@@ -8,6 +9,7 @@ export function Layout() {
       <main className="flex-1 mx-auto w-full max-w-3xl pb-8">
         <Outlet />
       </main>
+      <SiteFooter />
     </div>
   )
 }
