@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { Search, LogOut, User as UserIcon, Shield, Settings, SquarePen as PenSquare, FileText, MessageSquare, Bookmark, Heart } from "lucide-react"
 import { EightPointStar } from "./geometric-pattern"
+import { InstallPwaButton } from "./install-pwa-button"
 
 export function TopBar() {
   const { profile, user, isAdmin, signOut } = useAuth()
@@ -62,6 +63,7 @@ export function TopBar() {
         </Link>
 
         <div className="flex items-center gap-1">
+          <InstallPwaButton />
           <Button
             variant="ghost"
             size="icon"
