@@ -4,10 +4,6 @@ import { createRoot } from "react-dom/client"
 import "./index.css"
 import App from "./App.tsx"
 import { ThemeProvider } from "@/components/theme-provider.tsx"
-import { SiteSettingsProvider } from "@/contexts/site-settings-context"
-import { applyThemePreset, getCachedThemePreset } from "@/lib/theme-presets"
-
-applyThemePreset(getCachedThemePreset())
 
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", () => {
@@ -18,9 +14,7 @@ if ("serviceWorker" in navigator) {
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
     <ThemeProvider defaultTheme="light" storageKey="jingyuan-theme">
-      <SiteSettingsProvider>
-        <App />
-      </SiteSettingsProvider>
+      <App />
     </ThemeProvider>
   </StrictMode>
 )

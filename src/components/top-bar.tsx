@@ -1,6 +1,7 @@
+import { useEffect, useState } from "react"
 import { Link, useNavigate } from "react-router-dom"
 import { useAuth } from "@/contexts/auth-context"
-import { useSiteSettings } from "@/contexts/site-settings-context"
+import { supabase } from "@/lib/supabase"
 import { Button } from "@/components/ui/button"
 import { UserAvatar } from "@/components/user-avatar"
 import {
@@ -17,12 +18,34 @@ import { EightPointStar } from "./geometric-pattern"
 export function TopBar() {
   const { profile, user, isAdmin, signOut } = useAuth()
   const nav = useNavigate()
-  const { settings } = useSiteSettings()
-  const siteName = settings.site_name || "静园"
-  const siteIcon = settings.site_icon_url
+  const [siteName, setSiteName] = useState("静园")
+  const [siteIcon, setSiteIcon] = useState("")
+
+  useEffect(() => {
+    let active = true
+    async function load() {
+      const { data } = await supabase
+        .from("site_settings")
+        .select("site_name, site_icon_url")
+        .eq("id", 1)
+        .maybeSingle()
+      if (active && data) {
+        setSiteName(data.site_name || "静园")
+        setSiteIcon(data.site_icon_url || "")
+        if (data.site_name) document.title = data.site_name
+      }
+    }
+    load()
+    const onUpdate = () => load()
+    window.addEventListener("site-settings-updated", onUpdate)
+    return () => {
+      active = false
+      window.removeEventListener("site-settings-updated", onUpdate)
+    }
+  }, [])
 
   return (
-    <header className="sticky top-0 z-40 border-b border-border/40 bg-background/75 backdrop-blur-md">
+    <header className="sticky top-0 z-40 border-b border-border/50 bg-gradient-to-b from-card/90 via-card/80 to-card/60 backdrop-blur-md shadow-[0_1px_0_0_color-mix(in_oklab,var(--primary)_8%,transparent)]">
       <div className="mx-auto flex max-w-3xl items-center justify-between gap-2 px-4 py-3">
         <Link to="/" className="flex items-center gap-2 group">
           <span className="relative flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-primary to-[color-mix(in_oklab,var(--primary)_60%,var(--accent))] text-primary-foreground shadow-md shadow-primary/30 ring-1 ring-primary/20 group-hover:shadow-lg group-hover:shadow-primary/40 transition-all overflow-hidden">
