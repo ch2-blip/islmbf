@@ -9,13 +9,13 @@ import { Badge } from "@/components/ui/badge"
 export function ArticleCard({ article }: { article: Article }) {
   return (
     <Link to={`/article/${article.id}`}>
-      <Card className="group overflow-hidden border-border/70 hover:border-primary/30 hover:shadow-md transition-all duration-300">
+      <Card className="group overflow-hidden border-border/70 hover:border-primary/30 hover:shadow-md transition-colors duration-200">
         {article.cover_image && (
           <div className="relative aspect-[16/7] overflow-hidden bg-muted">
             <img
               src={article.cover_image}
               alt={article.title}
-              className="h-full w-full object-cover group-hover:scale-105 transition-transform duration-500"
+              className="h-full w-full object-cover"
               style={{
                 objectPosition: `center ${typeof article.cover_focal_y === "number" ? article.cover_focal_y : 50}%`,
               }}

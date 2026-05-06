@@ -71,20 +71,20 @@ export function HomeHero() {
         <>
           <div
             aria-hidden
-            className="absolute -right-6 -top-6 h-28 w-28 rounded-full blur-2xl"
-            style={{ backgroundColor: "rgba(255,255,255,0.15)" }}
+            className="absolute -right-6 -top-6 h-28 w-28 rounded-full"
+            style={{ backgroundColor: "rgba(255,255,255,0.10)" }}
           />
           <div
             aria-hidden
-            className="absolute -left-8 bottom-0 h-24 w-24 rounded-full blur-2xl"
-            style={{ backgroundColor: "rgba(216,154,42,0.3)" }}
+            className="absolute -left-8 bottom-0 h-24 w-24 rounded-full"
+            style={{ backgroundColor: "rgba(216,154,42,0.20)" }}
           />
         </>
       )}
 
       <div className={cn("relative flex items-center gap-3", SIZE_PAD[settings.hero_size])}>
         <span
-          className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl backdrop-blur-sm text-primary-foreground"
+          className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl text-primary-foreground"
           style={{ backgroundColor: "rgba(255,255,255,0.15)", boxShadow: "inset 0 0 0 1px rgba(255,255,255,0.25)" }}
         >
           <EightPointStar size={26} />
