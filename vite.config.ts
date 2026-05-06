@@ -5,16 +5,21 @@ import legacy from "@vitejs/plugin-legacy"
 import { defineConfig, type Plugin } from "vite"
 
 /**
- * Custom Vite plugin: strip @layer wrappers from built CSS.
+ * Custom Vite plugin: strip @layer wrappers AND "in oklab" color-space hints
+ * from built CSS so old browsers (Chrome < 99 / Baidu / QQ) work correctly.
  *
  * Tailwind CSS v4 wraps ALL output in @layer (properties / theme / base /
  * utilities). Browsers older than Chrome 99 don't understand @layer and
  * silently discard every rule inside, resulting in a completely unstyled page.
  *
+ * Tailwind v4 also uses "in oklab" in gradient position variables, e.g.
+ * `--tw-gradient-position: to bottom right in oklab`. Old browsers can't parse
+ * this, causing ALL gradients to become transparent.
+ *
  * This plugin runs in generateBundle (after Tailwind + lightningcss have
- * finished) and removes the @layer wrappers while keeping all rules intact.
- * Modern browsers still get the correct cascade because rules already appear
- * in source order.
+ * finished) and:
+ *  1. Removes @layer wrappers while keeping all rules intact
+ *  2. Strips "in oklab" from gradient position variables
  */
 function stripCssLayers(): Plugin {
   return {
@@ -27,7 +32,9 @@ function stripCssLayers(): Plugin {
           typeof asset.source === "string" &&
           asset.fileName.endsWith(".css")
         ) {
-          asset.source = removeLayers(asset.source)
+          let css = removeLayers(asset.source)
+          css = stripOklabFromGradients(css)
+          asset.source = css
         }
       }
     },
@@ -40,11 +47,10 @@ function removeLayers(css: string): string {
   let i = 0
   while (i < css.length) {
     if (css.startsWith("@layer ", i)) {
-      // Find opening brace or semicolon (empty layer like `@layer components;`)
       const bracePos = css.indexOf("{", i)
       const semiPos = css.indexOf(";", i)
 
-      // Empty @layer declaration — skip entirely
+      // Empty @layer declaration (e.g. `@layer components;`) — skip
       if (semiPos !== -1 && (bracePos === -1 || semiPos < bracePos)) {
         i = semiPos + 1
         continue
@@ -70,6 +76,24 @@ function removeLayers(css: string): string {
     }
   }
   return result
+}
+
+/**
+ * Strip "in oklab" from gradient position variables.
+ *
+ * Tailwind v4 generates: `--tw-gradient-position: to bottom right in oklab`
+ * Old browsers can't parse `linear-gradient(to bottom right in oklab, ...)`
+ * and fall back to transparent. Removing "in oklab" makes the gradient use
+ * the default sRGB color space, which all browsers understand.
+ *
+ * This is safe because "in oklab" inside color-mix() is always guarded by
+ * @supports blocks, so old browsers never see those.
+ */
+function stripOklabFromGradients(css: string): string {
+  return css.replace(
+    /--tw-gradient-position:\s*([^;{}]+?)\s+in\s+oklab/g,
+    "--tw-gradient-position:$1"
+  )
 }
 
 export default defineConfig({

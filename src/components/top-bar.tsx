@@ -49,7 +49,13 @@ export function TopBar() {
     <header className="sticky top-0 z-40 border-b border-border/50 bg-gradient-to-b from-card/90 via-card/80 to-card/60 backdrop-blur-md shadow-[0_1px_0_0_var(--primary-8)]">
       <div className="mx-auto flex max-w-3xl items-center justify-between gap-2 px-4 py-3">
         <Link to="/" className="flex items-center gap-2 group">
-          <span className="relative flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-primary to-accent text-primary-foreground shadow-md shadow-primary/30 ring-1 ring-primary/20 group-hover:shadow-lg group-hover:shadow-primary/40 transition-all overflow-hidden">
+          <span
+            className="relative flex h-9 w-9 items-center justify-center rounded-xl text-primary-foreground overflow-hidden"
+            style={{
+              background: "linear-gradient(to bottom right, var(--primary), var(--accent))",
+              boxShadow: "0 4px 6px rgba(47,107,91,0.3), inset 0 0 0 1px rgba(47,107,91,0.2)",
+            }}
+          >
             {siteIcon ? (
               <img src={siteIcon} alt={siteName} className="h-full w-full object-cover" />
             ) : (

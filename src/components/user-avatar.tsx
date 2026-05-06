@@ -43,7 +43,7 @@ export function UserAvatar({
   return (
     <Avatar className={cn(sizeMap[size], shape, halo, "border border-border", className)}>
       <AvatarImage src={profile?.avatar_url || undefined} className={cn(shape)} />
-      <AvatarFallback className={cn("bg-primary/10 text-primary font-semibold", shape)}>
+      <AvatarFallback className={cn("bg-secondary text-primary font-semibold", shape)}>
         {initials}
       </AvatarFallback>
     </Avatar>
