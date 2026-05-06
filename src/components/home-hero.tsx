@@ -5,17 +5,17 @@ import { cn } from "@/lib/utils"
 
 const VARIANT_GRADIENT: Record<Exclude<HeroVariant, "auto">, string> = {
   jade:
-    "from-[oklch(0.42_0.09_165)] via-[oklch(0.52_0.1_170)] to-[oklch(0.7_0.12_75)]",
+    "from-[#1f7a5e] via-[#2d8c6e] to-[#c49828]",
   amber:
-    "from-[oklch(0.45_0.08_55)] via-[oklch(0.55_0.1_60)] to-[oklch(0.78_0.14_75)]",
+    "from-[#7a5c2e] via-[#8e6e32] to-[#c49838]",
   ink:
-    "from-[oklch(0.28_0.06_250)] via-[oklch(0.38_0.07_245)] to-[oklch(0.72_0.16_45)]",
+    "from-[#2a3a6a] via-[#3a4a7a] to-[#d08030]",
   teal:
-    "from-[oklch(0.48_0.1_200)] via-[oklch(0.58_0.09_205)] to-[oklch(0.88_0.11_95)]",
+    "from-[#2a7a8a] via-[#3a8a8e] to-[#d0d060]",
   ember:
-    "from-[oklch(0.38_0.1_20)] via-[oklch(0.5_0.12_30)] to-[oklch(0.78_0.14_50)]",
+    "from-[#7a2a1a] via-[#9a4020] to-[#c48830]",
   mono:
-    "from-[oklch(0.28_0.02_60)] via-[oklch(0.38_0.02_60)] to-[oklch(0.5_0.02_60)]",
+    "from-[#3a3632] via-[#504c48] to-[#6a6660]",
 }
 
 const SIZE_PAD: Record<string, string> = {
@@ -45,7 +45,7 @@ export function HomeHero() {
       )}
     >
       {settings.hero_variant === "auto" ? (
-        <div className="absolute inset-0 bg-gradient-to-br from-primary via-[color-mix(in_oklab,var(--primary)_55%,var(--accent))] to-accent" />
+        <div className="absolute inset-0 bg-gradient-to-br from-primary via-primary/60 to-accent" />
       ) : (
         <div className={cn("absolute inset-0 bg-gradient-to-br", gradient)} />
       )}

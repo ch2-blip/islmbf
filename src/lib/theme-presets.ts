@@ -397,14 +397,44 @@ export const THEME_PRESET_ORDER: ThemePresetKey[] = [
 const STYLE_TAG_ID = "site-theme-preset"
 const CACHE_KEY = "site-theme-preset"
 
+/* ── oklch → hex/rgba converter (runs in JS, not CSS) ── */
+function oklchToFallback(raw: string): string {
+  const m = raw.match(/oklch\(\s*([\d.]+)\s+([\d.]+)\s+([\d.]+)(?:\s*\/\s*([\d.%]+))?\s*\)/)
+  if (!m) return raw
+  const L = +m[1], C = +m[2], H = +m[3]
+  const alpha = m[4] ? (m[4].endsWith("%") ? +m[4].slice(0, -1) / 100 : +m[4]) : 1
+  const hRad = H * Math.PI / 180
+  const a = C * Math.cos(hRad), b = C * Math.sin(hRad)
+  const l_ = L + 0.3963377774 * a + 0.2158037573 * b
+  const m_ = L - 0.1055613458 * a - 0.0638541728 * b
+  const s_ = L - 0.0894841775 * a - 1.2914855480 * b
+  const l3 = l_ * l_ * l_, m3 = m_ * m_ * m_, s3 = s_ * s_ * s_
+  const lr = 4.0767416621 * l3 - 3.3077115913 * m3 + 0.2309699292 * s3
+  const lg = -1.2684380046 * l3 + 2.6097574011 * m3 - 0.3413193965 * s3
+  const lb = -0.0041960863 * l3 - 0.7034186147 * m3 + 1.7076147010 * s3
+  const gamma = (x: number) => x <= 0.0031308 ? 12.92 * x : 1.055 * Math.pow(x, 1 / 2.4) - 0.055
+  const clamp = (x: number) => Math.round(Math.max(0, Math.min(1, gamma(x))) * 255)
+  const r = clamp(lr), g = clamp(lg), bv = clamp(lb)
+  if (alpha < 1) return `rgba(${r}, ${g}, ${bv}, ${alpha})`
+  return `#${r.toString(16).padStart(2, "0")}${g.toString(16).padStart(2, "0")}${bv.toString(16).padStart(2, "0")}`
+}
+
 function buildCss(preset: ThemePreset) {
-  const lightBody = Object.entries(preset.light)
-    .map(([k, v]) => `  ${k}: ${v};`)
+  // Hex fallback values (old browsers)
+  const lightHex = Object.entries(preset.light)
+    .map(([k, v]) => `  ${k}: ${oklchToFallback(v)};`)
     .join("\n")
-  const darkBody = Object.entries(preset.dark)
-    .map(([k, v]) => `  ${k}: ${v};`)
+  const darkHex = Object.entries(preset.dark)
+    .map(([k, v]) => `  ${k}: ${oklchToFallback(v)};`)
     .join("\n")
-  return `:root {\n  --radius: ${sharedRadius};\n${lightBody}\n}\n.dark {\n${darkBody}\n}`
+  // oklch values for modern browsers
+  const lightOklch = Object.entries(preset.light)
+    .map(([k, v]) => `    ${k}: ${v};`)
+    .join("\n")
+  const darkOklch = Object.entries(preset.dark)
+    .map(([k, v]) => `    ${k}: ${v};`)
+    .join("\n")
+  return `:root {\n  --radius: ${sharedRadius};\n${lightHex}\n}\n.dark {\n${darkHex}\n}\n@supports (color: oklch(0 0 0)) {\n  :root {\n${lightOklch}\n  }\n  .dark {\n${darkOklch}\n  }\n}`
 }
 
 export function applyThemePreset(key: ThemePresetKey | null | undefined) {

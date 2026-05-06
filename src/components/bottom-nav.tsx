@@ -37,7 +37,7 @@ export function BottomNav() {
 
   return (
     <>
-      <nav className="fixed bottom-0 left-0 right-0 z-40 bg-gradient-to-t from-card/95 via-card/90 to-card/80 backdrop-blur-md pb-[env(safe-area-inset-bottom)] shadow-[0_-1px_0_0_color-mix(in_oklab,var(--accent)_35%,transparent),0_-8px_24px_-12px_color-mix(in_oklab,var(--primary)_25%,transparent)] before:content-[''] before:absolute before:inset-x-0 before:top-0 before:h-px before:bg-gradient-to-r before:from-transparent before:via-accent/50 before:to-transparent">
+      <nav className="fixed bottom-0 left-0 right-0 z-40 bg-gradient-to-t from-card/95 via-card/90 to-card/80 backdrop-blur-md pb-[env(safe-area-inset-bottom)] shadow-[0_-1px_0_0_var(--accent-22),0_-8px_24px_-12px_var(--primary-20)] before:content-[''] before:absolute before:inset-x-0 before:top-0 before:h-px before:bg-gradient-to-r before:from-transparent before:via-accent/50 before:to-transparent">
         <div className="mx-auto flex max-w-3xl items-center justify-around">
           {items.map((item) => {
             const Icon = item.icon
