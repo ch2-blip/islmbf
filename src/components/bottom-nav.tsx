@@ -55,7 +55,7 @@ export function BottomNav() {
                   className="flex flex-col items-center justify-center px-3 py-2 -translate-y-3"
                   aria-label="发布"
                 >
-                  <span className="flex h-12 w-12 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg shadow-primary/30 ring-4 ring-background">
+                  <span className="flex h-12 w-12 items-center justify-center rounded-full bg-primary text-primary-foreground ring-4 ring-background" style={{ boxShadow: "0 4px 12px rgba(47,107,91,0.3)" }}>
                     <Icon className="h-5 w-5" />
                   </span>
                 </button>

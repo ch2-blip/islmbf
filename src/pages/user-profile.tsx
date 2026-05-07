@@ -96,12 +96,18 @@ export function UserProfilePage() {
             <div className="flex items-center gap-1.5 flex-wrap mb-1">
               <h1 className="text-lg font-semibold">{profile.username}</h1>
               {roleBadgeText(profile) && (
-                <span className="inline-flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded bg-primary/10 text-primary">
+                <span
+                  className="inline-flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded text-primary"
+                  style={{ backgroundColor: "var(--primary-10)" }}
+                >
                   <Shield className="h-2.5 w-2.5" /> {roleBadgeText(profile)}
                 </span>
               )}
               {profile.is_verified_scholar && (
-                <span className="inline-flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded bg-accent/15 text-accent-foreground">
+                <span
+                  className="inline-flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded text-accent-foreground"
+                  style={{ backgroundColor: "var(--accent-12)" }}
+                >
                   <BadgeCheck className="h-2.5 w-2.5" /> 认证学者
                 </span>
               )}

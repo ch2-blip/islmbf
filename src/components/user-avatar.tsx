@@ -14,10 +14,10 @@ const sizeMap: Record<Size, string> = {
 
 const haloMap: Record<string, string> = {
   none: "",
-  gold: "ring-2 ring-amber-400/70 shadow-[0_0_14px_rgba(251,191,36,0.55)]",
-  emerald: "ring-2 ring-emerald-400/70 shadow-[0_0_14px_rgba(52,211,153,0.55)]",
-  rose: "ring-2 ring-rose-400/70 shadow-[0_0_14px_rgba(251,113,133,0.55)]",
-  sky: "ring-2 ring-sky-400/70 shadow-[0_0_14px_rgba(56,189,248,0.55)]",
+  gold: "ring-2 ring-amber-400 shadow-[0_0_10px_rgba(251,191,36,0.4)]",
+  emerald: "ring-2 ring-emerald-400 shadow-[0_0_10px_rgba(52,211,153,0.4)]",
+  rose: "ring-2 ring-rose-400 shadow-[0_0_10px_rgba(251,113,133,0.4)]",
+  sky: "ring-2 ring-sky-400 shadow-[0_0_10px_rgba(56,189,248,0.4)]",
 }
 
 const shapeMap: Record<string, string> = {

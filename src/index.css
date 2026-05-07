@@ -217,29 +217,8 @@
   }
   body {
     @apply bg-background text-foreground;
-    /* Solid fallback for legacy browsers */
     background-color: var(--background);
     font-feature-settings: "kern" 1, "liga" 1;
-    -webkit-font-smoothing: antialiased;
-  }
-  /* Only apply the lush radial gradients on browsers that understand color-mix */
-  @supports (background: color-mix(in oklab, red, blue)) {
-    body {
-      background-image:
-        radial-gradient(1200px 600px at 88% -12%, color-mix(in oklab, var(--accent) 22%, transparent), transparent 65%),
-        radial-gradient(1000px 640px at -8% 8%, color-mix(in oklab, var(--primary) 20%, transparent), transparent 60%),
-        radial-gradient(800px 620px at 50% 115%, color-mix(in oklab, var(--primary) 14%, transparent), transparent 70%);
-      background-attachment: fixed;
-    }
-    .dark body {
-      background-image:
-        radial-gradient(1200px 600px at 88% -12%, color-mix(in oklab, var(--accent) 12%, transparent), transparent 65%),
-        radial-gradient(1000px 640px at -8% 8%, color-mix(in oklab, var(--primary) 12%, transparent), transparent 60%),
-        radial-gradient(800px 620px at 50% 115%, color-mix(in oklab, var(--primary) 10%, transparent), transparent 70%);
-    }
-  }
-  html {
-    scroll-behavior: smooth;
   }
 }
 
