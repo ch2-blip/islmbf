@@ -395,7 +395,6 @@ export function CreateArticlePage() {
             </button>
           )}
         </div>
-
         {canPostVideo && (
           <div className="space-y-1.5">
             <Label htmlFor="video" className="flex items-center gap-1.5">
@@ -452,7 +451,6 @@ export function CreateArticlePage() {
             )}
           </div>
         )}
-
         <div className="rounded-lg border border-border/60 bg-muted/20 p-3 space-y-2">
           <div className="flex items-center justify-between gap-3">
             <div className="min-w-0">

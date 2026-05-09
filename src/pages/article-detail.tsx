@@ -13,6 +13,7 @@ import { timeAgo } from "@/lib/hijri"
 import { useAuth } from "@/contexts/auth-context"
 import { toast } from "sonner"
 import { ArabesqueDivider } from "@/components/geometric-pattern"
+import { detailThumb } from "@/lib/image-proxy"
 
 export function ArticleDetailPage() {
   const { id } = useParams<{ id: string }>()
@@ -43,11 +44,28 @@ export function ArticleDetailPage() {
     setArticle(data as Article)
     setLoaded(true)
     if (data) {
-      setCache<Article>(`article:${id}`, data as Article)
-      await supabase
-        .from("articles")
-        .update({ view_count: data.view_count + 1 })
-        .eq("id", id)
+      // 乐观更新：立刻在前端计算 +1
+      const newViewCount = data.view_count + 1
+      const newData = { ...data, view_count: newViewCount } as Article
+      
+      // 1. 更新当前文章详情的本地缓存
+      setCache<Article>(`article:${id}`, newData)
+      
+      // 2. 更新首页缓存中的阅读量，保证返回首页立刻生效
+      const homeCache = getCache<{ articles: Article[], topics: any[], announcement: any }>("home")
+      if (homeCache && homeCache.articles) {
+        homeCache.articles = homeCache.articles.map(a => 
+          a.id === id ? { ...a, view_count: newViewCount } : a
+        )
+        setCache("home", homeCache)
+      }
+
+      // 3. 更新组件本地状态
+      setArticle(newData)
+
+      // 4. 调用无视 RLS 的 RPC 函数进行后端递增
+      const { error } = await supabase.rpc("increment_article_views", { article_id: id })
+      if (error) console.error(error)
     }
     if (user && data) {
       const [{ data: likeData }, { data: bmData }] = await Promise.all([
@@ -177,7 +195,7 @@ export function ArticleDetailPage() {
 
       <div className="flex items-center justify-between gap-4 pb-5 mb-5 border-b border-border/60">
         <Link to={`/user/${article.author?.username}`} className="flex items-center gap-2.5 min-w-0">
-          <UserAvatar profile={article.author} size="md" />
+          <UserAvatar profile={article.author} size="md" showHalo={false} className="shrink-0" />
           <div className="min-w-0">
             <div className="text-sm font-medium truncate">{article.author?.username}</div>
             <div className="text-xs text-muted-foreground">
@@ -200,7 +218,7 @@ export function ArticleDetailPage() {
       {article.cover_image && (
         <div className="mb-6 overflow-hidden rounded-lg bg-muted">
           <img
-            src={article.cover_image}
+            src={detailThumb(article.cover_image)}
             alt={article.title}
             className="block w-full h-auto max-h-[85vh] object-contain"
             loading="lazy"
@@ -265,3 +283,4 @@ export function ArticleDetailPage() {
     </article>
   )
 }
+

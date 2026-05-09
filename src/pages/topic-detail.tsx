@@ -37,14 +37,22 @@ export function TopicDetailPage() {
       .select("*, author:profiles!topics_author_id_fkey(*), board:boards(*)")
       .eq("id", id)
       .maybeSingle()
-    setTopic(data as Topic)
-    setLoaded(true)
     if (data) {
-      setCache<Topic>(`topic:${id}`, data as Topic)
-      await supabase
-        .from("topics")
-        .update({ view_count: data.view_count + 1 })
-        .eq("id", id)
+      const optimisticTopic = { ...data, view_count: data.view_count + 1 } as Topic
+      setTopic(optimisticTopic)
+      setLoaded(true)
+      setCache<Topic>(`topic:${id}`, optimisticTopic)
+      
+      const homeCache = getCache<any>("home")
+      if (homeCache && homeCache.topics) {
+        const idx = homeCache.topics.findIndex((t: any) => t.id === id)
+        if (idx !== -1) {
+          homeCache.topics[idx].view_count = optimisticTopic.view_count
+          setCache("home", homeCache)
+        }
+      }
+
+      await supabase.rpc("increment_topic_views", { topic_id: id })
     }
     if (user && data) {
       const { data: likeData } = await supabase

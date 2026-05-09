@@ -5,6 +5,7 @@ import { Card } from "@/components/ui/card"
 import { Eye, MessageCircle, Heart, Pin } from "lucide-react"
 import { timeAgo } from "@/lib/hijri"
 import { Badge } from "@/components/ui/badge"
+import { listThumb } from "@/lib/image-proxy"
 
 export function ArticleCard({ article }: { article: Article }) {
   return (
@@ -13,8 +14,11 @@ export function ArticleCard({ article }: { article: Article }) {
         {article.cover_image && (
           <div className="relative aspect-[16/7] overflow-hidden bg-muted">
             <img
-              src={article.cover_image}
+              src={listThumb(article.cover_image)}
               alt={article.title}
+              width={640}
+              height={280}
+              decoding="async"
               className="h-full w-full object-cover"
               style={{
                 objectPosition: `center ${typeof article.cover_focal_y === "number" ? article.cover_focal_y : 50}%`,
@@ -49,7 +53,7 @@ export function ArticleCard({ article }: { article: Article }) {
           )}
           <div className="mt-4 flex items-center justify-between text-xs text-muted-foreground">
             <div className="flex items-center gap-2 min-w-0">
-              <UserAvatar profile={article.author} size="xs" />
+              <UserAvatar profile={article.author} size="xs" showHalo={false} className="shrink-0" />
               <span className="truncate max-w-[120px]">{article.author?.username}</span>
               <span className="text-border">·</span>
               <span>{timeAgo(article.published_at)}</span>

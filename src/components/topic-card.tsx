@@ -12,7 +12,7 @@ export function TopicCard({ topic }: { topic: Topic }) {
       className="block group border-b border-border/60 last:border-b-0 hover:bg-muted/40 transition-colors"
     >
       <div className="flex items-start gap-3 p-4">
-        <UserAvatar profile={topic.author} size="md" className="shrink-0" />
+        <UserAvatar profile={topic.author} size="md" showHalo={false} className="shrink-0" />
         <div className="flex-1 min-w-0">
           <div className="flex items-start gap-2">
             <div className="flex-1 min-w-0">
