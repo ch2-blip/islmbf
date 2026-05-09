@@ -1,6 +1,6 @@
 import { Link } from "react-router-dom"
 import type { Topic } from "@/lib/database.types"
-import { UserAvatar } from "@/components/user-avatar"
+import { UserAvatar, UserNameWithBadge } from "@/components/user-avatar"
 import { MessageCircle, Pin, Lock } from "lucide-react"
 import { timeAgo } from "@/lib/hijri"
 import { Badge } from "@/components/ui/badge"
@@ -12,7 +12,7 @@ export function TopicCard({ topic }: { topic: Topic }) {
       className="block group border-b border-border/60 last:border-b-0 hover:bg-muted/40 transition-colors"
     >
       <div className="flex items-start gap-3 p-4">
-        <UserAvatar profile={topic.author} size="md" showHalo={false} className="shrink-0" />
+        <UserAvatar profile={topic.author} size="md" className="shrink-0" />
         <div className="flex-1 min-w-0">
           <div className="flex items-start gap-2">
             <div className="flex-1 min-w-0">
@@ -24,7 +24,7 @@ export function TopicCard({ topic }: { topic: Topic }) {
                 </h3>
               </div>
               <div className="flex items-center gap-1.5 flex-wrap text-xs text-muted-foreground">
-                <span className="truncate max-w-[100px]">{topic.author?.username}</span>
+                <UserNameWithBadge profile={topic.author} className="max-w-[100px]" />
                 {topic.board && (
                   <>
                     <span className="text-border">·</span>

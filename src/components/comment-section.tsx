@@ -2,12 +2,12 @@ import { useEffect, useState } from "react"
 import { supabase } from "@/lib/supabase"
 import type { Comment } from "@/lib/database.types"
 import { useAuth } from "@/contexts/auth-context"
-import { UserAvatar, roleBadgeText } from "@/components/user-avatar"
+import { UserAvatar, UserNameWithBadge } from "@/components/user-avatar"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { timeAgo } from "@/lib/hijri"
 import { toast } from "sonner"
-import { Reply, Trash2, Flag, Shield } from "lucide-react"
+import { Reply, Trash2, Flag } from "lucide-react"
 import { useNavigate } from "react-router-dom"
 import {
   Dialog,
@@ -217,14 +217,14 @@ function CommentItem({
       <UserAvatar profile={comment.author} size="sm" className="shrink-0" />
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2 flex-wrap mb-1">
-          <span className="text-sm font-medium text-foreground">{comment.author?.username}</span>
-          {roleBadgeText(comment.author) && (
-            <span className="inline-flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded bg-primary/10 text-primary">
-              <Shield className="h-2.5 w-2.5" /> {roleBadgeText(comment.author)}
-            </span>
-          )}
+          <UserNameWithBadge profile={comment.author} />
           {comment.author?.is_verified_scholar && (
-            <span className="text-[10px] px-1.5 py-0.5 rounded bg-accent/20 text-accent-foreground">认证学者</span>
+            <span 
+              className="text-[10px] px-1.5 py-0.5 rounded text-accent-foreground"
+              style={{ backgroundColor: "var(--accent-22)" }}
+            >
+              认证学者
+            </span>
           )}
           <span className="text-xs text-muted-foreground">{timeAgo(comment.created_at)}</span>
         </div>
@@ -253,7 +253,7 @@ function CommentItem({
                 <UserAvatar profile={r.author} size="xs" className="shrink-0" />
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-1.5 flex-wrap">
-                    <span className="text-xs font-medium">{r.author?.username}</span>
+                    <UserNameWithBadge profile={r.author} />
                     <span className="text-[10px] text-muted-foreground">{timeAgo(r.created_at)}</span>
                   </div>
                   <p className="text-sm text-foreground/90 whitespace-pre-wrap break-words leading-relaxed mt-0.5">

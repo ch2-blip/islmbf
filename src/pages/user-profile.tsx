@@ -2,14 +2,14 @@ import { useEffect, useState } from "react"
 import { useParams, useNavigate } from "react-router-dom"
 import { supabase } from "@/lib/supabase"
 import type { Profile, Article, Topic } from "@/lib/database.types"
-import { UserAvatar, roleBadgeText } from "@/components/user-avatar"
+import { UserAvatar, UserNameWithBadge } from "@/components/user-avatar"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { Dialog, DialogContent } from "@/components/ui/dialog"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { ArticleCard } from "@/components/article-card"
 import { TopicCard } from "@/components/topic-card"
-import { ArrowLeft, Shield, BadgeCheck, Calendar } from "lucide-react"
+import { ArrowLeft, BadgeCheck, Calendar } from "lucide-react"
 import { timeAgo } from "@/lib/hijri"
 import { useAuth } from "@/contexts/auth-context"
 
@@ -94,15 +94,7 @@ export function UserProfilePage() {
           </button>
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-1.5 flex-wrap mb-1">
-              <h1 className="text-lg font-semibold">{profile.username}</h1>
-              {roleBadgeText(profile) && (
-                <span
-                  className="inline-flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded text-primary"
-                  style={{ backgroundColor: "var(--primary-10)" }}
-                >
-                  <Shield className="h-2.5 w-2.5" /> {roleBadgeText(profile)}
-                </span>
-              )}
+              <UserNameWithBadge profile={profile} className="text-lg font-semibold" />
               {profile.is_verified_scholar && (
                 <span
                   className="inline-flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded text-accent-foreground"

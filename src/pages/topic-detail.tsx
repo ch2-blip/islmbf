@@ -2,7 +2,7 @@ import { useEffect, useState } from "react"
 import { useParams, Link, useNavigate } from "react-router-dom"
 import { supabase } from "@/lib/supabase"
 import type { Topic } from "@/lib/database.types"
-import { UserAvatar } from "@/components/user-avatar"
+import { UserAvatar, UserNameWithBadge } from "@/components/user-avatar"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { CommentSection } from "@/components/comment-section"
@@ -158,9 +158,9 @@ export function TopicDetailPage() {
 
         <div className="flex items-center justify-between gap-4 mb-5 pb-4 border-b border-border/60">
           <Link to={`/user/${topic.author?.username}`} className="flex items-center gap-2.5 min-w-0">
-            <UserAvatar profile={topic.author} size="sm" />
+            <UserAvatar profile={topic.author} size="sm" className="shrink-0" />
             <div className="min-w-0">
-              <div className="text-sm font-medium truncate">{topic.author?.username}</div>
+              <UserNameWithBadge profile={topic.author} className="text-sm" />
               <div className="text-xs text-muted-foreground">
                 {timeAgo(topic.created_at)} · {topic.view_count} 浏览
               </div>

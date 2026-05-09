@@ -2,7 +2,7 @@ import { useEffect, useState } from "react"
 import { useParams, Link, useNavigate } from "react-router-dom"
 import { supabase } from "@/lib/supabase"
 import type { Article } from "@/lib/database.types"
-import { UserAvatar } from "@/components/user-avatar"
+import { UserAvatar, UserNameWithBadge } from "@/components/user-avatar"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
@@ -195,9 +195,9 @@ export function ArticleDetailPage() {
 
       <div className="flex items-center justify-between gap-4 pb-5 mb-5 border-b border-border/60">
         <Link to={`/user/${article.author?.username}`} className="flex items-center gap-2.5 min-w-0">
-          <UserAvatar profile={article.author} size="md" showHalo={false} className="shrink-0" />
+          <UserAvatar profile={article.author} size="md" className="shrink-0" />
           <div className="min-w-0">
-            <div className="text-sm font-medium truncate">{article.author?.username}</div>
+            <UserNameWithBadge profile={article.author} className="text-sm" />
             <div className="text-xs text-muted-foreground">
               发布于 {timeAgo(article.published_at)} · {article.view_count} 阅读
             </div>
