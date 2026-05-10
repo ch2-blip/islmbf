@@ -108,6 +108,16 @@ const server = http.createServer(async (req, res) => {
   let html = getIndexHtml();
 
   try {
+    const injectMeta = (htmlContent, metaStr) => {
+      return htmlContent
+        .replace(/<title>.*?<\/title>/i, '')
+        .replace(/<meta name="description"([^>]+)?>/i, '')
+        .replace(/<meta property="og:image"([^>]+)?>/i, '')
+        .replace(/<meta name="twitter:card"([^>]+)?>/i, '')
+        .replace(/<meta name="twitter:image"([^>]+)?>/i, '')
+        .replace('</head>', metaStr + '\n  </head>');
+    };
+
     if (pathParts.length === 2 && pathParts[0] === 'article') {
       const id = pathParts[1];
       const data = await fetchSupabase('articles', id, 'title,excerpt,content,cover_image');
@@ -115,7 +125,7 @@ const server = http.createServer(async (req, res) => {
         const desc = data.excerpt || stripHtml(data.content) || '静园文章分享';
         const img = data.cover_image ? `${SUPABASE_URL}/storage/v1/object/public/article-covers/${data.cover_image}` : null;
         const newMeta = generateMetaTags(data.title, desc, img, urlObj.href);
-        html = html.replace(/<!-- META_INJECTION_START -->[\s\S]*<!-- META_INJECTION_END -->/m, newMeta);
+        html = injectMeta(html, newMeta);
       }
     } else if (pathParts.length === 2 && pathParts[0] === 'topic') {
       const id = pathParts[1];
@@ -123,7 +133,7 @@ const server = http.createServer(async (req, res) => {
       if (data) {
         const desc = stripHtml(data.content) || '静园话题分享';
         const newMeta = generateMetaTags(data.title, desc, null, urlObj.href);
-        html = html.replace(/<!-- META_INJECTION_START -->[\s\S]*<!-- META_INJECTION_END -->/m, newMeta);
+        html = injectMeta(html, newMeta);
       }
     }
   } catch (err) {
