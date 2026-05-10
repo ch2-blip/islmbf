@@ -86,7 +86,13 @@ function stripHtml(html) {
 function generateMetaTags(title, description, imageUrl, url) {
   const safeTitle = title.replace(/"/g, '&quot;');
   const safeDesc = description.replace(/"/g, '&quot;');
-  const safeImage = imageUrl || '/pwa-icon-512.webp';
+  let safeImage = imageUrl || '/pwa-icon-512.webp';
+  if (!safeImage.startsWith('http://') && !safeImage.startsWith('https://')) {
+    if (!safeImage.startsWith('/')) {
+      safeImage = '/' + safeImage;
+    }
+    safeImage = 'https://861866.xyz' + safeImage;
+  }
   return `
     <title>${safeTitle} - 静园</title>
     <meta name="description" content="${safeDesc}" />
