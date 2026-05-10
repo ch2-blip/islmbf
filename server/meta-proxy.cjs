@@ -129,7 +129,14 @@ const server = http.createServer(async (req, res) => {
       const data = await fetchSupabase('articles', id, 'title,excerpt,content,cover_image');
       if (data) {
         const desc = data.excerpt || stripHtml(data.content) || '静园文章分享';
-        const img = data.cover_image ? `${SUPABASE_URL}/storage/v1/object/public/article-covers/${data.cover_image}` : null;
+        let img = null;
+        if (data.cover_image) {
+          if (data.cover_image.startsWith('http://') || data.cover_image.startsWith('https://')) {
+            img = data.cover_image;
+          } else {
+            img = `${SUPABASE_URL}/storage/v1/object/public/article-covers/${data.cover_image}`;
+          }
+        }
         const newMeta = generateMetaTags(data.title, desc, img, urlObj.href);
         html = injectMeta(html, newMeta);
       }
