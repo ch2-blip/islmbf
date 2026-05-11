@@ -34,6 +34,31 @@ if (!SUPABASE_URL || !SUPABASE_KEY) {
 }
 
 const PORT = process.env.PORT || 8787;
+const SITE_ORIGIN = 'https://861866.xyz';
+const DEFAULT_FALLBACK_IMAGE = SITE_ORIGIN + '/pwa-icon-512.webp';
+
+// 从 site_settings 动态读取站点图标，启动时加载一次，之后每 10 分钟刷新
+let cachedSiteIcon = null;
+function refreshSiteIcon() {
+  const url = `${SUPABASE_URL}/rest/v1/site_settings?select=site_icon_url&limit=1`;
+  https.get(url, {
+    headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
+  }, (res) => {
+    let data = '';
+    res.on('data', chunk => data += chunk);
+    res.on('end', () => {
+      try {
+        const json = JSON.parse(data);
+        if (json[0] && json[0].site_icon_url) {
+          cachedSiteIcon = json[0].site_icon_url;
+          console.log('[Meta Proxy] Site icon loaded:', cachedSiteIcon);
+        }
+      } catch (e) { /* ignore */ }
+    });
+  }).on('error', () => { /* ignore */ });
+}
+refreshSiteIcon();
+setInterval(refreshSiteIcon, 10 * 60 * 1000);
 const HTML_PATHS = [
   path.join('/opt/1panel/apps/openresty/openresty/www/sites/861866.xyz/index', 'index.html'), // 正式服路径
   path.join(process.cwd(), 'dist', 'index.html'), // 本地 build 路径
@@ -86,7 +111,7 @@ function stripHtml(html) {
 function generateMetaTags(title, description, imageUrl, url) {
   const safeTitle = title.replace(/"/g, '&quot;');
   const safeDesc = description.replace(/"/g, '&quot;');
-  let safeImage = imageUrl || '/pwa-icon-512.webp';
+  let safeImage = imageUrl || cachedSiteIcon || DEFAULT_FALLBACK_IMAGE;
   if (!safeImage.startsWith('http://') && !safeImage.startsWith('https://')) {
     if (!safeImage.startsWith('/')) {
       safeImage = '/' + safeImage;
