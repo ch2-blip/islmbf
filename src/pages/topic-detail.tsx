@@ -178,7 +178,7 @@ export function TopicDetailPage() {
           )}
         </div>
 
-        <div className="text-[15px] text-foreground/90 whitespace-pre-wrap leading-relaxed">
+        <div className="text-[15px] text-foreground whitespace-pre-wrap leading-relaxed">
           {topic.content}
         </div>
 

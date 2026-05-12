@@ -7,6 +7,7 @@ import type {
   SiteSettings,
   ThemePresetKey,
 } from "@/lib/database.types"
+import type { TextDepth } from "@/lib/database.types"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -26,6 +27,9 @@ import {
   THEME_PRESETS,
   THEME_PRESET_ORDER,
   applyThemePreset,
+  applyTextDepth,
+  TEXT_DEPTH_MAP,
+  getCachedTextDepth,
 } from "@/lib/theme-presets"
 import { EightPointStar, GeometricPattern } from "@/components/geometric-pattern"
 
@@ -84,7 +88,7 @@ export function SiteSettingsPanel() {
   const [name, setName] = useState("")
   const [iconUrl, setIconUrl] = useState("")
   const [allowVideo, setAllowVideo] = useState(false)
-  const [themePreset, setThemePreset] = useState<ThemePresetKey>("warm-sand")
+  const [themePreset, setThemePreset] = useState<ThemePresetKey>("stone-burgundy")
   const [heroEnabled, setHeroEnabled] = useState(true)
   const [heroEyebrow, setHeroEyebrow] = useState("")
   const [heroTitle, setHeroTitle] = useState("")
@@ -96,6 +100,7 @@ export function SiteSettingsPanel() {
   const [footerText, setFooterText] = useState("")
   const [registrationOpen, setRegistrationOpen] = useState(true)
   const [icpText, setIcpText] = useState("")
+  const [textDepth, setTextDepth] = useState<TextDepth>(() => getCachedTextDepth())
 
   useEffect(() => {
     load()
@@ -108,8 +113,12 @@ export function SiteSettingsPanel() {
     setName(data.site_name ?? "")
     setIconUrl(data.site_icon_url ?? "")
     setAllowVideo(!!data.allow_video_posts)
-    if (data.theme_preset && data.theme_preset in THEME_PRESETS) {
-      setThemePreset(data.theme_preset as ThemePresetKey)
+    /* Theme fallback: if DB has a deleted old key, fall back */
+    const dbPreset = data.theme_preset as string
+    if (dbPreset && dbPreset in THEME_PRESETS) {
+      setThemePreset(dbPreset as ThemePresetKey)
+    } else {
+      setThemePreset("stone-burgundy")
     }
     setHeroEnabled(data.hero_enabled ?? true)
     setHeroEyebrow(data.hero_eyebrow ?? "")
@@ -122,6 +131,8 @@ export function SiteSettingsPanel() {
     setFooterText(data.footer_text ?? "")
     setRegistrationOpen(data.registration_open ?? true)
     setIcpText(data.icp_text ?? "")
+    /* text_depth is localStorage-only, not from DB */
+    setTextDepth(getCachedTextDepth())
   }
 
   function pickTheme(key: ThemePresetKey) {
@@ -226,6 +237,21 @@ export function SiteSettingsPanel() {
             placeholder="或直接粘贴链接"
           />
         </div>
+        <div className="flex gap-2">
+          <Button
+            size="sm"
+            variant="ghost"
+            className="text-xs text-muted-foreground"
+            onClick={() => {
+              if (confirm("确定要恢复默认图标？恢复后站点将使用默认星形图标。")) {
+                setIconUrl("")
+                toast.success("已重置为默认图标，记得点保存")
+              }
+            }}
+          >
+            恢复默认图标
+          </Button>
+        </div>
       </Card>
 
       <Card className="p-4 space-y-3">
@@ -274,6 +300,60 @@ export function SiteSettingsPanel() {
                     </span>
                   )}
                 </div>
+              </button>
+            )
+          })}
+        </div>
+        <div className="flex justify-end">
+          <Button
+            size="sm"
+            variant="ghost"
+            className="text-xs text-muted-foreground"
+            onClick={() => {
+              if (confirm("确定要恢复默认配色（枣红黛青）？")) {
+                pickTheme("stone-burgundy")
+                toast.success("已重置为默认配色，记得点保存")
+              }
+            }}
+          >
+            恢复默认配色
+          </Button>
+        </div>
+      </Card>
+
+      <Card className="p-4 space-y-3">
+        <div className="flex items-center gap-2">
+          <span className="text-base font-bold">文</span>
+          <Label className="text-base">阅读文字深浅</Label>
+        </div>
+        <p className="text-xs text-muted-foreground">
+          调节全站正文、标题、摘要的文字深浅。不影响按钮、标签、导航等配色
+        </p>
+        <div className="flex gap-2">
+          {(["standard", "deep", "deeper", "max"] as TextDepth[]).map((d) => {
+            const m = TEXT_DEPTH_MAP[d]
+            return (
+              <button
+                key={d}
+                onClick={() => { setTextDepth(d); applyTextDepth(d) }}
+                className={`flex-1 flex flex-col items-center gap-1.5 rounded-lg border-2 p-3 transition-all ${
+                  textDepth === d
+                    ? "border-primary bg-primary/5 shadow-sm"
+                    : "border-transparent bg-muted/50 hover:border-border"
+                }`}
+              >
+                <span
+                  className="text-lg font-bold leading-none"
+                  style={{ color: m.fgHex }}
+                >
+                  文
+                </span>
+                <span className="text-[11px]" style={{ color: m.mutedHex }}>
+                  {m.label}
+                </span>
+                {textDepth === d && (
+                  <Check className="h-3.5 w-3.5 text-primary" />
+                )}
               </button>
             )
           })}

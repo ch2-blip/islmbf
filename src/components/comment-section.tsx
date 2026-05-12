@@ -228,7 +228,7 @@ function CommentItem({
           )}
           <span className="text-xs text-muted-foreground">{timeAgo(comment.created_at)}</span>
         </div>
-        <p className="text-sm text-foreground/90 whitespace-pre-wrap break-words leading-relaxed">
+        <p className="text-sm text-foreground whitespace-pre-wrap break-words leading-relaxed">
           {comment.content}
         </p>
         <div className="mt-2 flex items-center gap-3 text-xs text-muted-foreground">
@@ -256,7 +256,7 @@ function CommentItem({
                     <UserNameWithBadge profile={r.author} />
                     <span className="text-[10px] text-muted-foreground">{timeAgo(r.created_at)}</span>
                   </div>
-                  <p className="text-sm text-foreground/90 whitespace-pre-wrap break-words leading-relaxed mt-0.5">
+                  <p className="text-sm text-foreground whitespace-pre-wrap break-words leading-relaxed mt-0.5">
                     {r.content}
                   </p>
                   {canDelete(r) && (

@@ -67,7 +67,7 @@ export function AnnouncementsPage() {
                 {a.title}
               </h2>
               <div className="h-px bg-gradient-to-r from-accent/40 via-border to-transparent" />
-              <p className="text-[15px] sm:text-base whitespace-pre-wrap leading-8 text-foreground/90 font-serif-cn">
+              <p className="text-[15px] sm:text-base whitespace-pre-wrap leading-8 text-foreground font-serif-cn">
                 {a.content}
               </p>
             </div>

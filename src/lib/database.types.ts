@@ -6,16 +6,16 @@ export type TargetType = "article" | "topic" | "comment"
 export type AvatarShape = "circle" | "square" | "rounded"
 export type HaloStyle = "none" | "gold" | "emerald" | "rose" | "sky"
 export type ThemePresetKey =
-  | "warm-sand"
-  | "fresh-mint"
-  | "moss-pine"
-  | "cream-parchment"
-  | "ink-ember"
-  | "celadon-butter"
   | "stone-burgundy"
+  | "paper-classic"
+  | "pine-elegance"
+  | "twilight-orchid"
+  | "autumn-study"
+  | "ink-porcelain"
 export type HeroSize = "compact" | "standard" | "grand"
 export type HeroVariant = "auto" | "jade" | "amber" | "ink" | "teal" | "ember" | "mono"
 export type HeroPattern = "geometric" | "subtle" | "stars" | "none"
+export type TextDepth = "standard" | "deep" | "deeper" | "max"
 
 export interface Profile {
   id: string

@@ -1,7 +1,8 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react"
 import { supabase } from "@/lib/supabase"
 import type { SiteSettings } from "@/lib/database.types"
-import { applyThemePreset } from "@/lib/theme-presets"
+import { applyThemePreset, applyTextDepth, getCachedTextDepth, THEME_PRESETS } from "@/lib/theme-presets"
+import type { ThemePresetKey } from "@/lib/database.types"
 
 const CACHE_KEY = "site-settings-cache"
 
@@ -10,7 +11,7 @@ const DEFAULTS: SiteSettings = {
   site_name: "静园",
   site_icon_url: "",
   allow_video_posts: false,
-  theme_preset: "warm-sand",
+  theme_preset: "stone-burgundy",
   hero_enabled: true,
   hero_eyebrow: "AS-SALĀMU 'ALAYKUM",
   hero_title: "愿平安与宁静与你同在",
@@ -58,15 +59,22 @@ export function SiteSettingsProvider({ children }: { children: ReactNode }) {
   async function refresh() {
     const { data } = await supabase.from("site_settings").select("*").eq("id", 1).maybeSingle()
     if (data) {
+      /* If DB has an old/deleted theme key, fall back to stone-burgundy */
+      const dbPreset = data.theme_preset as string
+      if (dbPreset && !(dbPreset in THEME_PRESETS)) {
+        data.theme_preset = "stone-burgundy" as ThemePresetKey
+      }
       const next = { ...DEFAULTS, ...data } as SiteSettings
       setSettings(next)
       writeCache(next)
       applyThemePreset(next.theme_preset)
+      applyTextDepth(getCachedTextDepth())
     }
   }
 
   useEffect(() => {
     applyThemePreset(settings.theme_preset)
+    applyTextDepth(getCachedTextDepth())
     refresh()
     function onUpdate() {
       refresh()
