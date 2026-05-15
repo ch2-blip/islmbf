@@ -74,6 +74,14 @@ export function HomePage() {
       topics: nextTopics,
       announcement: nextAnnouncement,
     })
+    // Pre-cache individual articles for instant detail page display
+    for (const a of nextArticles) {
+      setCache<Article>(`article:${a.id}`, a, (a as any).updated_at)
+    }
+    // Pre-cache individual topics for instant detail page display
+    for (const t of nextTopics) {
+      setCache<Topic>(`topic:${t.id}`, t, (t as any).updated_at)
+    }
   }
 
   return (
@@ -106,7 +114,7 @@ export function HomePage() {
           </TabsTrigger>
         </TabsList>
 
-        <TabsContent value="articles" className="mt-4 space-y-4">
+        <TabsContent value="articles" className="mt-4 space-y-4 min-h-[50vh]">
           {articles.length === 0 ? (
             loaded ? <EmptyState type="article" /> : null
           ) : (
@@ -114,7 +122,7 @@ export function HomePage() {
           )}
         </TabsContent>
 
-        <TabsContent value="topics" className="mt-4">
+        <TabsContent value="topics" className="mt-4 min-h-[50vh]">
           {topics.length === 0 ? (
             loaded ? <EmptyState type="topic" /> : null
           ) : (

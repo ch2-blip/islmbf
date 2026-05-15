@@ -22,12 +22,16 @@ import { Input } from "@/components/ui/input"
 interface Props {
   targetType: "article" | "topic"
   targetId: string
+  /** Pre-loaded comments for instant display (used by topic-detail cache) */
+  initialComments?: Comment[]
+  /** Called whenever comments list changes (load, post, delete) */
+  onCommentsChange?: (comments: Comment[]) => void
 }
 
-export function CommentSection({ targetType, targetId }: Props) {
+export function CommentSection({ targetType, targetId, initialComments, onCommentsChange }: Props) {
   const { user, profile, isModerator } = useAuth()
   const nav = useNavigate()
-  const [comments, setComments] = useState<Comment[]>([])
+  const [comments, setComments] = useState<Comment[]>(initialComments ?? [])
   const [content, setContent] = useState("")
   const [replyTo, setReplyTo] = useState<Comment | null>(null)
   const [submitting, setSubmitting] = useState(false)
@@ -46,7 +50,9 @@ export function CommentSection({ targetType, targetId }: Props) {
       .eq("target_id", targetId)
       .eq("is_deleted", false)
       .order("created_at", { ascending: true })
-    setComments((data as Comment[]) ?? [])
+    const next = (data as Comment[]) ?? []
+    setComments(next)
+    onCommentsChange?.(next)
   }
 
   async function submit() {

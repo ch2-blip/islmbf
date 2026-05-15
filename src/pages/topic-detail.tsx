@@ -1,7 +1,7 @@
-import { useEffect, useState } from "react"
-import { useParams, Link, useNavigate } from "react-router-dom"
+import { useEffect, useState, useRef } from "react"
+import { useParams, Link, useNavigate, useNavigationType } from "react-router-dom"
 import { supabase } from "@/lib/supabase"
-import type { Topic } from "@/lib/database.types"
+import type { Topic, Comment } from "@/lib/database.types"
 import { UserAvatar, UserNameWithBadge } from "@/components/user-avatar"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -13,58 +13,134 @@ import { useAuth } from "@/contexts/auth-context"
 import { toast } from "sonner"
 import { Card } from "@/components/ui/card"
 
+/** Combined snapshot: topic + comments displayed together */
+type TopicSnapshot = {
+  topic: Topic
+  comments: Comment[]
+}
+
 export function TopicDetailPage() {
   const { id } = useParams<{ id: string }>()
   const nav = useNavigate()
   const { user, isModerator } = useAuth()
-  const cached = id ? getCache<Topic>(`topic:${id}`) : undefined
-  const [topic, setTopic] = useState<Topic | null>(cached ?? null)
+
+  /* ── Combined cache hit: topic + comments appear together ── */
+  const cached = id ? getCache<TopicSnapshot>(`topic-snap:${id}`) : undefined
+  const [topic, setTopic] = useState<Topic | null>(cached?.topic ?? null)
+  const [cachedComments, setCachedComments] = useState<Comment[]>(cached?.comments ?? [])
   const [loaded, setLoaded] = useState(!!cached)
+
+  /* ── Interaction state (non-blocking) ── */
   const [liked, setLiked] = useState(false)
+
+  /* Prevent duplicate RPC calls */
+  const viewCounted = useRef(false)
+
+  const navType = useNavigationType()
 
   useEffect(() => {
     if (!id) return
-    const c = getCache<Topic>(`topic:${id}`)
-    setTopic(c ?? null)
-    setLoaded(!!c)
-    load()
+    viewCounted.current = false
+
+    // Scroll to top only when navigating forward (PUSH), not on browser back (POP)
+    if (navType !== "POP") window.scrollTo(0, 0)
+
+    // Try combined cache for instant display
+    const snap = getCache<TopicSnapshot>(`topic-snap:${id}`)
+    if (snap) {
+      setTopic(snap.topic)
+      setCachedComments(snap.comments)
+      setLoaded(true)
+    } else {
+      setTopic(null)
+      setCachedComments([])
+      setLoaded(false)
+    }
+
+    // Load topic + comments in parallel
+    loadAll(id)
   }, [id])
 
-  async function load() {
-    if (!id) return
-    const { data } = await supabase
-      .from("topics")
-      .select("*, author:profiles!topics_author_id_fkey(*), board:boards(*)")
-      .eq("id", id)
-      .maybeSingle()
-    if (data) {
-      const optimisticTopic = { ...data, view_count: data.view_count + 1 } as Topic
-      setTopic(optimisticTopic)
-      setLoaded(true)
-      setCache<Topic>(`topic:${id}`, optimisticTopic)
-      
-      const homeCache = getCache<any>("home")
-      if (homeCache && homeCache.topics) {
-        const idx = homeCache.topics.findIndex((t: any) => t.id === id)
-        if (idx !== -1) {
-          homeCache.topics[idx].view_count = optimisticTopic.view_count
-          setCache("home", homeCache)
-        }
-      }
+  /* Load interactions separately after topic is ready */
+  useEffect(() => {
+    if (topic && id) loadInteractions(id)
+  }, [topic?.id, user?.id])
 
-      await supabase.rpc("increment_topic_views", { topic_id: id })
-    }
-    if (user && data) {
-      const { data: likeData } = await supabase
-        .from("reactions")
-        .select("id")
-        .eq("user_id", user.id)
+  /**
+   * Primary fetch — loads topic AND comments in parallel.
+   * Both arrive together → no "split" display.
+   */
+  async function loadAll(topicId: string) {
+    const [topicRes, commentsRes] = await Promise.all([
+      supabase
+        .from("topics")
+        .select("*, author:profiles!topics_author_id_fkey(*), board:boards(*)")
+        .eq("id", topicId)
+        .maybeSingle(),
+      supabase
+        .from("comments")
+        .select("*, author:profiles!comments_author_id_fkey(*)")
         .eq("target_type", "topic")
-        .eq("target_id", id)
-        .eq("reaction_type", "like")
-        .maybeSingle()
-      setLiked(!!likeData)
+        .eq("target_id", topicId)
+        .eq("is_deleted", false)
+        .order("created_at", { ascending: true })
+        .limit(100),
+    ])
+
+    const t = topicRes.data as Topic | null
+    const c = (commentsRes.data as Comment[]) ?? []
+
+    if (t) {
+      setTopic(t)
+      setCachedComments(c)
+      setLoaded(true)
+
+      // Save combined snapshot cache
+      setCache<TopicSnapshot>(`topic-snap:${topicId}`, { topic: t, comments: c }, (t as any).updated_at)
+
+      // Fire-and-forget: increment views
+      if (!viewCounted.current) {
+        viewCounted.current = true
+        const newCount = (t.view_count ?? 0) + 1
+        setTopic({ ...t, view_count: newCount } as Topic)
+
+        const homeCache = getCache<any>("home")
+        if (homeCache?.topics) {
+          const idx = homeCache.topics.findIndex((x: any) => x.id === topicId)
+          if (idx !== -1) {
+            homeCache.topics[idx].view_count = newCount
+            setCache("home", homeCache)
+          }
+        }
+
+        supabase.rpc("increment_topic_views", { topic_id: topicId })
+          .then(({ error }) => { if (error) console.error(error) })
+      }
+    } else {
+      setLoaded(true)
     }
+  }
+
+  /** Called by CommentSection after it refreshes or after user posts/deletes */
+  function handleCommentsChange(comments: Comment[]) {
+    setCachedComments(comments)
+    // Update combined cache
+    if (topic && id) {
+      setCache<TopicSnapshot>(`topic-snap:${id}`, { topic, comments }, (topic as any).updated_at)
+    }
+  }
+
+  async function loadInteractions(topicId: string) {
+    if (!user) return
+    const { data: likeData } = await supabase
+      .from("reactions")
+      .select("id")
+      .eq("user_id", user.id)
+      .eq("target_type", "topic")
+      .eq("target_id", topicId)
+      .eq("reaction_type", "like")
+      .maybeSingle()
+    setLiked(!!likeData)
   }
 
   async function toggleLike() {
@@ -121,9 +197,9 @@ export function TopicDetailPage() {
   }
 
   if (!topic) {
-    if (!loaded) return <div className="px-4 pt-4" />
+    if (!loaded) return <div className="px-4 pt-4 min-h-[60vh]" />
     return (
-      <div className="px-4 pt-12 text-center">
+      <div className="px-4 pt-12 text-center min-h-[60vh]">
         <p className="text-muted-foreground mb-4">话题不存在或已删除</p>
         <Button variant="outline" onClick={() => nav("/")}>返回首页</Button>
       </div>
@@ -199,8 +275,14 @@ export function TopicDetailPage() {
         </div>
       </Card>
 
+      {/* Comments: rendered immediately with cached data — no 300ms delay */}
       <Card className="p-5">
-        <CommentSection targetType="topic" targetId={topic.id} />
+        <CommentSection
+          targetType="topic"
+          targetId={topic.id}
+          initialComments={cachedComments}
+          onCommentsChange={handleCommentsChange}
+        />
       </Card>
     </div>
   )

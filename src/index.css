@@ -245,6 +245,11 @@
   }
 }
 
+/* Sticky-footer safety: push footer to bottom of flex column even if flex-1 fails */
+.site-footer {
+  margin-top: auto;
+}
+
 @keyframes arabesque-float {
   0%, 100% { transform: translateY(0) rotate(0deg); opacity: 0.08; }
   50% { transform: translateY(-8px) rotate(2deg); opacity: 0.12; }

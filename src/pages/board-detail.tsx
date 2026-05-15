@@ -99,7 +99,6 @@ export function CategoryDetailPage() {
   const [category, setCategory] = useState<Category | null>(cached?.category ?? null)
   const [articles, setArticles] = useState<Article[]>(cached?.articles ?? [])
   const [loaded, setLoaded] = useState(!!cached)
-
   useEffect(() => {
     if (!slug) return
     const c = getCache<CategoryCache>(`category:${slug}`)

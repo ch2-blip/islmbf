@@ -1,5 +1,5 @@
-import { useEffect, useState } from "react"
-import { useParams, Link, useNavigate } from "react-router-dom"
+import { useEffect, useState, useRef } from "react"
+import { useParams, Link, useNavigate, useNavigationType } from "react-router-dom"
 import { supabase } from "@/lib/supabase"
 import type { Article } from "@/lib/database.types"
 import { UserAvatar, UserNameWithBadge } from "@/components/user-avatar"
@@ -19,76 +19,126 @@ export function ArticleDetailPage() {
   const { id } = useParams<{ id: string }>()
   const nav = useNavigate()
   const { user, isModerator } = useAuth()
+
+  /* ── 1. Instant cache hit: show content immediately ── */
   const cacheKey = id ? `article:${id}` : ""
   const cached = cacheKey ? getCache<Article>(cacheKey) : undefined
   const [article, setArticle] = useState<Article | null>(cached ?? null)
   const [loaded, setLoaded] = useState(!!cached)
+
+  /* ── Interaction state (non-blocking) ── */
   const [liked, setLiked] = useState(false)
   const [bookmarked, setBookmarked] = useState(false)
 
+  /* ── Deferred comment mount ── */
+  const [showComments, setShowComments] = useState(false)
+
+  /* Prevent duplicate RPC calls */
+  const viewCounted = useRef(false)
+
+  const navType = useNavigationType()
+
   useEffect(() => {
     if (!id) return
+    viewCounted.current = false
+
+    // Scroll to top only when navigating forward (PUSH), not on browser back (POP)
+    if (navType !== "POP") window.scrollTo(0, 0)
+
+    // Try memory/sessionStorage cache for instant display
     const c = getCache<Article>(`article:${id}`)
-    setArticle(c ?? null)
-    setLoaded(!!c)
-    load()
+    if (c) {
+      setArticle(c)
+      setLoaded(true)
+    } else {
+      setArticle(null)
+      setLoaded(false)
+    }
+
+    // Main content request — only thing that blocks rendering
+    loadArticle(id)
+
+    // Defer comments mount by 300ms so article renders first
+    setShowComments(false)
+    const t = setTimeout(() => setShowComments(true), 300)
+    return () => clearTimeout(t)
   }, [id])
 
-  async function load() {
-    if (!id) return
+  /* Load interactions separately after article is ready */
+  useEffect(() => {
+    if (article && id) {
+      loadInteractions(id)
+    }
+  }, [article?.id, user?.id])
+
+  /**
+   * Primary fetch — ONLY gets article data, nothing else blocks this.
+   */
+  async function loadArticle(articleId: string) {
     const { data } = await supabase
       .from("articles")
       .select("*, author:profiles!articles_author_id_fkey(*), category:categories(*)")
-      .eq("id", id)
+      .eq("id", articleId)
       .maybeSingle()
-    setArticle(data as Article)
-    setLoaded(true)
+
     if (data) {
-      // 乐观更新：立刻在前端计算 +1
-      const newViewCount = data.view_count + 1
-      const newData = { ...data, view_count: newViewCount } as Article
-      
-      // 1. 更新当前文章详情的本地缓存
-      setCache<Article>(`article:${id}`, newData)
-      
-      // 2. 更新首页缓存中的阅读量，保证返回首页立刻生效
-      const homeCache = getCache<{ articles: Article[], topics: any[], announcement: any }>("home")
-      if (homeCache && homeCache.articles) {
-        homeCache.articles = homeCache.articles.map(a => 
-          a.id === id ? { ...a, view_count: newViewCount } : a
-        )
-        setCache("home", homeCache)
+      setArticle(data as Article)
+      setLoaded(true)
+      setCache<Article>(`article:${articleId}`, data as Article, (data as any).updated_at)
+
+      // Fire-and-forget: increment views (NO await, does NOT block UI)
+      if (!viewCounted.current) {
+        viewCounted.current = true
+        // Optimistic: update local count immediately
+        const newCount = (data.view_count ?? 0) + 1
+        const withView = { ...data, view_count: newCount } as Article
+        setArticle(withView)
+        setCache<Article>(`article:${articleId}`, withView, (data as any).updated_at)
+
+        // Also update home cache view count
+        const homeCache = getCache<{ articles: Article[], topics: any[], announcement: any }>("home")
+        if (homeCache?.articles) {
+          homeCache.articles = homeCache.articles.map(a =>
+            a.id === articleId ? { ...a, view_count: newCount } : a
+          )
+          setCache("home", homeCache)
+        }
+
+        // RPC — fire and forget
+        supabase.rpc("increment_article_views", { article_id: articleId })
+          .then(({ error }) => { if (error) console.error(error) })
       }
-
-      // 3. 更新组件本地状态
-      setArticle(newData)
-
-      // 4. 调用无视 RLS 的 RPC 函数进行后端递增
-      const { error } = await supabase.rpc("increment_article_views", { article_id: id })
-      if (error) console.error(error)
+    } else {
+      setLoaded(true) // Mark loaded so we show "not found"
     }
-    if (user && data) {
-      const [{ data: likeData }, { data: bmData }] = await Promise.all([
-        supabase
-          .from("reactions")
-          .select("id")
-          .eq("user_id", user.id)
-          .eq("target_type", "article")
-          .eq("target_id", id)
-          .eq("reaction_type", "like")
-          .maybeSingle(),
-        supabase
-          .from("reactions")
-          .select("id")
-          .eq("user_id", user.id)
-          .eq("target_type", "article")
-          .eq("target_id", id)
-          .eq("reaction_type", "bookmark")
-          .maybeSingle(),
-      ])
-      setLiked(!!likeData)
-      setBookmarked(!!bmData)
-    }
+  }
+
+  /**
+   * Secondary fetch — loads like/bookmark status AFTER article renders.
+   * Completely non-blocking for article content.
+   */
+  async function loadInteractions(articleId: string) {
+    if (!user) return
+    const [{ data: likeData }, { data: bmData }] = await Promise.all([
+      supabase
+        .from("reactions")
+        .select("id")
+        .eq("user_id", user.id)
+        .eq("target_type", "article")
+        .eq("target_id", articleId)
+        .eq("reaction_type", "like")
+        .maybeSingle(),
+      supabase
+        .from("reactions")
+        .select("id")
+        .eq("user_id", user.id)
+        .eq("target_type", "article")
+        .eq("target_id", articleId)
+        .eq("reaction_type", "bookmark")
+        .maybeSingle(),
+    ])
+    setLiked(!!likeData)
+    setBookmarked(!!bmData)
   }
 
   async function toggleReaction(type: "like" | "bookmark") {
@@ -159,9 +209,9 @@ export function ArticleDetailPage() {
   }
 
   if (!article) {
-    if (!loaded) return <div className="px-4 pt-4" />
+    if (!loaded) return <div className="px-4 pt-4 min-h-[60vh]" />
     return (
-      <div className="px-4 pt-12 text-center">
+      <div className="px-4 pt-12 text-center min-h-[60vh]">
         <p className="text-muted-foreground mb-4">文章不存在或已删除</p>
         <Button variant="outline" onClick={() => nav("/")}>返回首页</Button>
       </div>
@@ -277,10 +327,12 @@ export function ArticleDetailPage() {
       </div>
       </Card>
 
-      <Card className="p-5 sm:p-6 shadow-sm">
-        <CommentSection targetType="article" targetId={article.id} />
-      </Card>
+      {/* Comments: deferred mount — does NOT block article content */}
+      {showComments && (
+        <Card className="p-5 sm:p-6 shadow-sm">
+          <CommentSection targetType="article" targetId={article.id} />
+        </Card>
+      )}
     </article>
   )
 }
-
