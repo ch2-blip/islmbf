@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { CommentSection } from "@/components/comment-section"
 import { getCache, setCache } from "@/lib/page-cache"
+import { fetchStaticArticle } from "@/lib/static-data"
 import { Heart, Bookmark, Share2, ArrowLeft, Trash2, Pencil } from "lucide-react"
 import { timeAgo } from "@/lib/hijri"
 import { useAuth } from "@/contexts/auth-context"
@@ -72,9 +73,30 @@ export function ArticleDetailPage() {
   }, [article?.id, user?.id])
 
   /**
-   * Primary fetch — ONLY gets article data, nothing else blocks this.
+   * Primary fetch — tries static JSON first, then Supabase.
+   * Static JSON gives instant display for first-time visitors.
    */
   async function loadArticle(articleId: string) {
+    // Try static JSON if no sessionStorage cache
+    const hadCache = !!getCache<Article>(`article:${articleId}`)
+    if (!hadCache) {
+      const staticArticle = await fetchStaticArticle<Article>(articleId)
+      if (staticArticle) {
+        setArticle(staticArticle)
+        setLoaded(true)
+        setCache<Article>(`article:${articleId}`, staticArticle, staticArticle.updated_at)
+        // Still revalidate from Supabase in background
+        revalidateFromSupabase(articleId)
+        return
+      }
+    }
+
+    // Fallback: Supabase query
+    await revalidateFromSupabase(articleId)
+  }
+
+  /** Supabase fetch — used as primary or background revalidation */
+  async function revalidateFromSupabase(articleId: string) {
     const { data } = await supabase
       .from("articles")
       .select("*, author:profiles!articles_author_id_fkey(*), category:categories(*)")
@@ -89,7 +111,6 @@ export function ArticleDetailPage() {
       // Fire-and-forget: increment views (NO await, does NOT block UI)
       if (!viewCounted.current) {
         viewCounted.current = true
-        // Optimistic: update local count immediately
         const newCount = (data.view_count ?? 0) + 1
         const withView = { ...data, view_count: newCount } as Article
         setArticle(withView)

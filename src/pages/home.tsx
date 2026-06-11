@@ -10,6 +10,7 @@ import { Link, useSearchParams } from "react-router-dom"
 import { timeAgo } from "@/lib/hijri"
 import { getCache, setCache } from "@/lib/page-cache"
 import { HomeHero } from "@/components/home-hero"
+import { fetchStaticHome, checkVersionChanged } from "@/lib/static-data"
 
 type HomeCache = {
   articles: Article[]
@@ -38,7 +39,51 @@ export function HomePage() {
     loadAll()
   }, [])
 
+  /**
+   * Load priority:
+   * 1. sessionStorage cache (already in useState init above)
+   * 2. /static-data/home.json (same-origin, fast)
+   * 3. Supabase (cross-origin, slower — fallback)
+   * 
+   * After display, background-check version.json for freshness.
+   */
   async function loadAll() {
+    // If no sessionStorage cache, try static JSON first
+    if (!cached) {
+      const staticData = await fetchStaticHome<HomeCache & { generatedAt?: string }>()
+      if (staticData && staticData.articles?.length > 0) {
+        setArticles(staticData.articles)
+        setTopics(staticData.topics ?? [])
+        setAnnouncement(staticData.announcement ?? null)
+        setLoaded(true)
+        // Write to sessionStorage for subsequent navigation
+        setCache<HomeCache>(CACHE_KEY, {
+          articles: staticData.articles,
+          topics: staticData.topics ?? [],
+          announcement: staticData.announcement ?? null,
+        })
+        // Pre-cache individual articles/topics for instant detail pages
+        for (const a of staticData.articles) {
+          setCache<Article>(`article:${a.id}`, a, (a as any).updated_at)
+        }
+        for (const t of staticData.topics ?? []) {
+          setCache<Topic>(`topic:${t.id}`, t, (t as any).updated_at)
+        }
+        // Background: check version then revalidate via Supabase
+        backgroundRevalidate()
+        return
+      }
+    }
+
+    // Fallback: original Supabase query (also used for revalidation)
+    await loadFromSupabase()
+
+    // Background version check (even if we had sessionStorage cache)
+    backgroundRevalidate()
+  }
+
+  /** Original Supabase loading — always works as fallback */
+  async function loadFromSupabase() {
     const [arRes, tpRes, anRes] = await Promise.all([
       supabase
         .from("articles")
@@ -81,6 +126,24 @@ export function HomePage() {
     // Pre-cache individual topics for instant detail page display
     for (const t of nextTopics) {
       setCache<Topic>(`topic:${t.id}`, t, (t as any).updated_at)
+    }
+  }
+
+  /** Background version check — if version changed, silently refresh from static JSON */
+  async function backgroundRevalidate() {
+    const { changed } = await checkVersionChanged()
+    if (changed) {
+      const freshData = await fetchStaticHome<HomeCache & { generatedAt?: string }>()
+      if (freshData && freshData.articles?.length > 0) {
+        setArticles(freshData.articles)
+        setTopics(freshData.topics ?? [])
+        setAnnouncement(freshData.announcement ?? null)
+        setCache<HomeCache>(CACHE_KEY, {
+          articles: freshData.articles,
+          topics: freshData.topics ?? [],
+          announcement: freshData.announcement ?? null,
+        })
+      }
     }
   }
 
