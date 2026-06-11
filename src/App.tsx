@@ -4,18 +4,19 @@ import { AuthProvider } from "@/contexts/auth-context"
 import { Toaster } from "@/components/ui/sonner"
 import { Layout } from "@/components/layout"
 
-/* ── Eagerly loaded: first-screen pages ── */
+/* ── Eagerly loaded: only the 3 most-visited first-screen pages ── */
 import { HomePage } from "@/pages/home"
 import { ArticleDetailPage } from "@/pages/article-detail"
 import { TopicDetailPage } from "@/pages/topic-detail"
-import { LoginPage } from "@/pages/login"
-import { RegisterPage } from "@/pages/register"
-import { DiscoverPage } from "@/pages/discover"
-import { BoardDetailPage, CategoryDetailPage } from "@/pages/board-detail"
-import { UserProfilePage } from "@/pages/user-profile"
-import { AnnouncementsPage } from "@/pages/announcements"
 
-/* ── Lazy loaded: non-first-screen pages ── */
+/* ── Lazy loaded: everything else ── */
+const LoginPage = lazy(() => import("@/pages/login").then(m => ({ default: m.LoginPage })))
+const RegisterPage = lazy(() => import("@/pages/register").then(m => ({ default: m.RegisterPage })))
+const DiscoverPage = lazy(() => import("@/pages/discover").then(m => ({ default: m.DiscoverPage })))
+const BoardDetailPage = lazy(() => import("@/pages/board-detail").then(m => ({ default: m.BoardDetailPage })))
+const CategoryDetailPage = lazy(() => import("@/pages/board-detail").then(m => ({ default: m.CategoryDetailPage })))
+const UserProfilePage = lazy(() => import("@/pages/user-profile").then(m => ({ default: m.UserProfilePage })))
+const AnnouncementsPage = lazy(() => import("@/pages/announcements").then(m => ({ default: m.AnnouncementsPage })))
 const CreateArticlePage = lazy(() => import("@/pages/create-article").then(m => ({ default: m.CreateArticlePage })))
 const CreateTopicPage = lazy(() => import("@/pages/create-topic").then(m => ({ default: m.CreateTopicPage })))
 const MePage = lazy(() => import("@/pages/me").then(m => ({ default: m.MePage })))
