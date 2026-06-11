@@ -131,9 +131,10 @@ export function HomePage() {
 
   /** Background version check — if version changed, silently refresh from static JSON */
   async function backgroundRevalidate() {
-    const { changed } = await checkVersionChanged()
+    const { changed, version } = await checkVersionChanged()
     if (changed) {
-      const freshData = await fetchStaticHome<HomeCache & { generatedAt?: string }>()
+      // Pass version as cache-busting param to bypass CDN/browser cache
+      const freshData = await fetchStaticHome<HomeCache & { generatedAt?: string }>(version)
       if (freshData && freshData.articles?.length > 0) {
         setArticles(freshData.articles)
         setTopics(freshData.topics ?? [])

@@ -10,11 +10,12 @@
  * Environment:
  *   VITE_SUPABASE_URL       — Supabase project URL (reads from .env / .env.local)
  *   VITE_SUPABASE_ANON_KEY  — Supabase anon key
- *   STATIC_DATA_OUT_DIR     — (optional) output directory override for VPS cron
+ *   STATIC_DATA_OUT_DIR     — (optional) output directory, defaults to public/static-data/
+ *                             For VPS cron: set to the live site's static-data directory
  */
 
 import { createClient } from "@supabase/supabase-js"
-import { writeFileSync, mkdirSync, existsSync } from "fs"
+import { writeFileSync, renameSync, mkdirSync, existsSync, unlinkSync } from "fs"
 import { resolve, dirname } from "path"
 import { fileURLToPath } from "url"
 import { config } from "dotenv"
@@ -43,14 +44,29 @@ function ensureDir(dir) {
   if (!existsSync(dir)) mkdirSync(dir, { recursive: true })
 }
 
-function writeJSON(filePath, data) {
+/**
+ * Atomic write: write to .tmp first, then rename.
+ * Prevents live site from reading a half-written JSON file.
+ */
+function atomicWriteJSON(filePath, data) {
   ensureDir(dirname(filePath))
-  writeFileSync(filePath, JSON.stringify(data), "utf-8")
-  const sizeKB = (Buffer.byteLength(JSON.stringify(data)) / 1024).toFixed(1)
-  console.log(`  ✅ ${filePath} (${sizeKB} KB)`)
+  const json = JSON.stringify(data)
+  const tmpPath = filePath + ".tmp"
+  try {
+    writeFileSync(tmpPath, json, "utf-8")
+    // Verify the tmp file is valid JSON before replacing
+    JSON.parse(json)
+    renameSync(tmpPath, filePath)
+    const sizeKB = (Buffer.byteLength(json) / 1024).toFixed(1)
+    console.log(`  ✅ ${filePath} (${sizeKB} KB)`)
+  } catch (err) {
+    // Clean up tmp file on failure
+    try { unlinkSync(tmpPath) } catch { /* ignore */ }
+    throw err
+  }
 }
 
-/** Strip fields that shouldn't be in public JSON */
+/** Strip fields that shouldn't be in public JSON — list view (no content) */
 function sanitizeArticleForList(a) {
   return {
     id: a.id,
@@ -88,7 +104,7 @@ function sanitizeTopicForList(t) {
   return {
     id: t.id,
     title: t.title,
-    content: t.content, // topics are short, keep content
+    content: t.content,
     is_pinned: t.is_pinned,
     is_closed: t.is_closed,
     view_count: t.view_count,
@@ -114,10 +130,11 @@ function sanitizeTopicForList(t) {
   }
 }
 
+/** Full article detail — includes content */
 function sanitizeArticleDetail(a) {
   return {
     ...sanitizeArticleForList(a),
-    content: a.content, // full content for detail page
+    content: a.content,
     author_id: a.author_id,
     category_id: a.category_id,
     status: a.status,
@@ -126,13 +143,15 @@ function sanitizeArticleDetail(a) {
 }
 
 async function main() {
+  const startTime = Date.now()
   console.log("🚀 Generating static data...")
-  console.log(`   Output: ${outDir}`)
+  console.log(`   Output directory: ${outDir}`)
+  console.log(`   Supabase URL: ${url}`)
 
   const now = new Date().toISOString()
 
   // ── 1. Fetch articles ──
-  console.log("\n📄 Fetching articles...")
+  console.log("\n📄 Fetching published articles...")
   const { data: articles, error: arErr } = await supabase
     .from("articles")
     .select("*, author:profiles!articles_author_id_fkey(*), category:categories(*)")
@@ -145,10 +164,10 @@ async function main() {
     console.error("❌ Articles fetch failed:", arErr.message)
     process.exit(1)
   }
-  console.log(`   Found ${articles.length} published articles`)
+  console.log(`   ✓ Found ${articles.length} published articles`)
 
   // ── 2. Fetch topics ──
-  console.log("\n💬 Fetching topics...")
+  console.log("\n💬 Fetching published topics...")
   const { data: topics, error: tpErr } = await supabase
     .from("topics")
     .select("*, author:profiles!topics_author_id_fkey(*), board:boards(*)")
@@ -161,11 +180,11 @@ async function main() {
     console.error("❌ Topics fetch failed:", tpErr.message)
     process.exit(1)
   }
-  console.log(`   Found ${topics.length} published topics`)
+  console.log(`   ✓ Found ${topics.length} published topics`)
 
   // ── 3. Fetch announcement ──
-  console.log("\n📢 Fetching announcement...")
-  const { data: announcement } = await supabase
+  console.log("\n📢 Fetching active announcement...")
+  const { data: announcement, error: anErr } = await supabase
     .from("announcements")
     .select("*")
     .eq("is_active", true)
@@ -173,9 +192,12 @@ async function main() {
     .limit(1)
     .maybeSingle()
 
-  console.log(`   ${announcement ? "Found active announcement" : "No active announcement"}`)
+  if (anErr) {
+    console.error("⚠️ Announcement fetch failed (non-fatal):", anErr.message)
+  }
+  console.log(`   ${announcement ? "✓ Found active announcement" : "– No active announcement"}`)
 
-  // ── 4. Write home.json ──
+  // ── 4. Write home.json (atomic) ──
   console.log("\n📦 Writing home.json...")
   const homeData = {
     articles: articles.map(sanitizeArticleForList),
@@ -183,17 +205,19 @@ async function main() {
     announcement: announcement || null,
     generatedAt: now,
   }
-  writeJSON(resolve(outDir, "home.json"), homeData)
+  atomicWriteJSON(resolve(outDir, "home.json"), homeData)
 
-  // ── 5. Write individual article detail JSONs ──
+  // ── 5. Write individual article detail JSONs (atomic) ──
   console.log("\n📦 Writing article detail JSONs...")
   ensureDir(resolve(outDir, "articles"))
+  let articleCount = 0
   for (const a of articles) {
     const detail = sanitizeArticleDetail(a)
-    writeJSON(resolve(outDir, "articles", `${a.id}.json`), detail)
+    atomicWriteJSON(resolve(outDir, "articles", `${a.id}.json`), detail)
+    articleCount++
   }
 
-  // ── 6. Write version.json ──
+  // ── 6. Write version.json (atomic, LAST — so readers see it only after all files are ready) ──
   console.log("\n📦 Writing version.json...")
   const versionData = {
     version: now,
@@ -203,14 +227,22 @@ async function main() {
     articleCount: articles.length,
     topicCount: topics.length,
   }
-  writeJSON(resolve(outDir, "version.json"), versionData)
+  atomicWriteJSON(resolve(outDir, "version.json"), versionData)
 
-  console.log("\n✅ Static data generation complete!")
-  console.log(`   ${articles.length} articles, ${topics.length} topics`)
-  console.log(`   Version: ${now}`)
+  // ── Summary ──
+  const elapsed = ((Date.now() - startTime) / 1000).toFixed(1)
+  console.log("\n" + "─".repeat(50))
+  console.log("✅ Static data generation complete!")
+  console.log(`   Articles (list):   ${articles.length}`)
+  console.log(`   Articles (detail): ${articleCount} JSON files`)
+  console.log(`   Topics (list):     ${topics.length}`)
+  console.log(`   Output directory:  ${outDir}`)
+  console.log(`   Version:           ${now}`)
+  console.log(`   Elapsed:           ${elapsed}s`)
+  console.log("─".repeat(50))
 }
 
 main().catch((err) => {
-  console.error("❌ Fatal error:", err)
+  console.error("❌ Fatal error:", err.message || err)
   process.exit(1)
 })
