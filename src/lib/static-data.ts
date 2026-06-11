@@ -48,6 +48,20 @@ export async function fetchStaticArticle<T>(id: string): Promise<T | null> {
 }
 
 /**
+ * Fetch a single topic detail (with comments) from static JSON.
+ * Uses ?t=timestamp to avoid CDN/browser serving stale data.
+ */
+export async function fetchStaticTopic<T>(id: string): Promise<T | null> {
+  try {
+    const res = await fetch(`${BASE}/topics/${id}.json?t=${Date.now()}`)
+    if (!res.ok) return null
+    return await res.json()
+  } catch {
+    return null
+  }
+}
+
+/**
  * Check version.json for updates.
  * Uses ?t=timestamp to bypass CDN/browser cache on every check.
  *

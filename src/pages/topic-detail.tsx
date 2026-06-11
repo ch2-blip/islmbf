@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { CommentSection } from "@/components/comment-section"
 import { getCache, setCache } from "@/lib/page-cache"
+import { fetchStaticTopic } from "@/lib/static-data"
 import { Heart, Share2, ArrowLeft, Trash2, Pencil, Pin, Lock } from "lucide-react"
 import { timeAgo } from "@/lib/hijri"
 import { useAuth } from "@/contexts/auth-context"
@@ -67,10 +68,34 @@ export function TopicDetailPage() {
   }, [topic?.id, user?.id])
 
   /**
-   * Primary fetch — loads topic AND comments in parallel.
-   * Both arrive together → no "split" display.
+   * Primary fetch — tries static JSON first, then Supabase.
+   * Static JSON includes topic + comments together for sync display.
    */
   async function loadAll(topicId: string) {
+    // Try static JSON if no sessionStorage cache
+    const hadCache = !!getCache<TopicSnapshot>(`topic-snap:${topicId}`)
+    if (!hadCache) {
+      const staticSnap = await fetchStaticTopic<{ topic: Topic; comments: Comment[]; generatedAt?: string }>(topicId)
+      if (staticSnap?.topic) {
+        setTopic(staticSnap.topic)
+        setCachedComments(staticSnap.comments ?? [])
+        setLoaded(true)
+        setCache<TopicSnapshot>(`topic-snap:${topicId}`, {
+          topic: staticSnap.topic,
+          comments: staticSnap.comments ?? [],
+        }, staticSnap.topic.updated_at)
+        // Background revalidate from Supabase
+        revalidateFromSupabase(topicId)
+        return
+      }
+    }
+
+    // Fallback: Supabase query
+    await revalidateFromSupabase(topicId)
+  }
+
+  /** Supabase fetch — loads topic AND comments in parallel. Both arrive together. */
+  async function revalidateFromSupabase(topicId: string) {
     const [topicRes, commentsRes] = await Promise.all([
       supabase
         .from("topics")

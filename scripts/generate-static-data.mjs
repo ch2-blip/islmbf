@@ -142,6 +142,40 @@ function sanitizeArticleDetail(a) {
   }
 }
 
+/** Sanitize a comment for public JSON */
+function sanitizeComment(c) {
+  return {
+    id: c.id,
+    content: c.content,
+    target_type: c.target_type,
+    target_id: c.target_id,
+    parent_id: c.parent_id,
+    is_deleted: c.is_deleted,
+    created_at: c.created_at,
+    updated_at: c.updated_at,
+    author: c.author ? {
+      id: c.author.id,
+      username: c.author.username,
+      display_name: c.author.display_name,
+      avatar_url: c.author.avatar_url,
+      role: c.author.role,
+      badge_text: c.author.badge_text,
+      badge_color: c.author.badge_color,
+    } : null,
+  }
+}
+
+/** Full topic detail — includes content + author_id */
+function sanitizeTopicDetail(t) {
+  return {
+    ...sanitizeTopicForList(t),
+    author_id: t.author_id,
+    board_id: t.board_id,
+    status: t.status,
+    last_reply_by: t.last_reply_by,
+  }
+}
+
 async function main() {
   const startTime = Date.now()
   console.log("🚀 Generating static data...")
@@ -217,7 +251,31 @@ async function main() {
     articleCount++
   }
 
-  // ── 6. Write version.json (atomic, LAST — so readers see it only after all files are ready) ──
+  // ── 6. Fetch comments for each topic and write topic detail JSONs ──
+  console.log("\n📦 Writing topic detail JSONs (with comments)...")
+  ensureDir(resolve(outDir, "topics"))
+  let topicCount = 0
+  for (const t of topics) {
+    // Fetch first page of comments for this topic
+    const { data: topicComments } = await supabase
+      .from("comments")
+      .select("*, author:profiles!comments_author_id_fkey(*)")
+      .eq("target_type", "topic")
+      .eq("target_id", t.id)
+      .eq("is_deleted", false)
+      .order("created_at", { ascending: true })
+      .limit(50)
+
+    const topicDetail = {
+      topic: sanitizeTopicDetail(t),
+      comments: (topicComments ?? []).map(sanitizeComment),
+      generatedAt: now,
+    }
+    atomicWriteJSON(resolve(outDir, "topics", `${t.id}.json`), topicDetail)
+    topicCount++
+  }
+
+  // ── 7. Write version.json (atomic, LAST — so readers see it only after all files are ready) ──
   console.log("\n📦 Writing version.json...")
   const versionData = {
     version: now,
@@ -236,6 +294,7 @@ async function main() {
   console.log(`   Articles (list):   ${articles.length}`)
   console.log(`   Articles (detail): ${articleCount} JSON files`)
   console.log(`   Topics (list):     ${topics.length}`)
+  console.log(`   Topics (detail):   ${topicCount} JSON files (with comments)`)
   console.log(`   Output directory:  ${outDir}`)
   console.log(`   Version:           ${now}`)
   console.log(`   Elapsed:           ${elapsed}s`)
