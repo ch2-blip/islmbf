@@ -147,7 +147,7 @@ export function TopBar() {
               <EightPointStar size={22} />
             )}
           </span>
-          <span className="text-lg font-semibold font-serif-cn text-foreground leading-tight">{siteName}</span>
+          <span className="text-xl font-semibold font-serif-cn text-foreground leading-tight">{siteName}</span>
         </Link>
 
         <div className="flex items-center gap-1">

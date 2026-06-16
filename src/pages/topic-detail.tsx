@@ -246,8 +246,8 @@ export function TopicDetailPage() {
         <ArrowLeft className="h-4 w-4" /> 返回
       </button>
 
-      <Card className="p-5">
-        <div className="flex items-center gap-2 mb-3 flex-wrap">
+      <Card className="px-4 py-3">
+        <div className="flex items-center gap-2 mb-1.5 flex-wrap">
           {topic.is_pinned && <Pin className="h-4 w-4 text-accent fill-accent/30" />}
           {topic.is_closed && <Lock className="h-4 w-4 text-muted-foreground" />}
           {topic.board && (
@@ -257,11 +257,11 @@ export function TopicDetailPage() {
           )}
         </div>
 
-        <h1 className="text-xl sm:text-2xl font-semibold leading-tight mb-4 font-serif-cn">
+        <h1 className="text-lg sm:text-xl font-semibold leading-snug mb-2 font-serif-cn">
           {topic.title}
         </h1>
 
-        <div className="flex items-center justify-between gap-4 mb-5 pb-4 border-b border-border/60">
+        <div className="flex items-center justify-between gap-4 mb-3 pb-2.5 border-b border-border/60">
           <Link to={`/user/${topic.author?.username}`} className="flex items-center gap-2.5 min-w-0">
             <UserAvatar profile={topic.author} size="sm" className="shrink-0" />
             <div className="min-w-0">
