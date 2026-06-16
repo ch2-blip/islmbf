@@ -5,10 +5,27 @@ import "./index.css"
 import App from "./App.tsx"
 import { ThemeProvider } from "@/components/theme-provider.tsx"
 import { applyThemePreset, getCachedThemePreset } from "@/lib/theme-presets"
-import { SiteSettingsProvider } from "@/contexts/site-settings-context"
+import { SiteSettingsProvider, CACHE_KEY } from "@/contexts/site-settings-context"
 import { supabase } from "@/lib/supabase"
 
 applyThemePreset(getCachedThemePreset())
+
+/* Pre-set title & favicon from cache before React paints — eliminates flash of old content */
+try {
+  const raw = localStorage.getItem(CACHE_KEY)
+  if (raw) {
+    const cached = JSON.parse(raw)
+    if (cached.site_name) {
+      document.title = cached.site_name
+    }
+    if (cached.site_icon_url) {
+      const iconLink = document.querySelector<HTMLLinkElement>('link[rel="icon"]')
+      if (iconLink) iconLink.href = cached.site_icon_url
+      const appleLink = document.querySelector<HTMLLinkElement>('link[rel="apple-touch-icon"]')
+      if (appleLink) appleLink.href = cached.site_icon_url
+    }
+  }
+} catch { /* ignore parse errors */ }
 
 async function refreshManifest() {
   try {

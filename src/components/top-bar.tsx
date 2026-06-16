@@ -1,7 +1,6 @@
-import { useEffect, useState } from "react"
 import { Link, useNavigate } from "react-router-dom"
 import { useAuth } from "@/contexts/auth-context"
-import { supabase } from "@/lib/supabase"
+import { useSiteSettings } from "@/contexts/site-settings-context"
 import { Button } from "@/components/ui/button"
 import { UserAvatar } from "@/components/user-avatar"
 import {
@@ -18,54 +17,34 @@ import { InstallPwaButton } from "./install-pwa-button"
 
 export function TopBar() {
   const { profile, user, isAdmin, signOut } = useAuth()
+  const { settings } = useSiteSettings()
   const nav = useNavigate()
-  const [siteName, setSiteName] = useState("静园")
-  const [siteIcon, setSiteIcon] = useState("")
 
-  useEffect(() => {
-    let active = true
-    async function load() {
-      const { data } = await supabase
-        .from("site_settings")
-        .select("site_name, site_icon_url")
-        .eq("id", 1)
-        .maybeSingle()
-      if (active && data) {
-        setSiteName(data.site_name || "静园")
-        setSiteIcon(data.site_icon_url || "")
-        if (data.site_name) document.title = data.site_name
-      }
-    }
-    load()
-    const onUpdate = () => load()
-    window.addEventListener("site-settings-updated", onUpdate)
-    return () => {
-      active = false
-      window.removeEventListener("site-settings-updated", onUpdate)
-    }
-  }, [])
+  const siteName = settings.site_name || "静园"
+  const siteIcon = settings.site_icon_url || ""
 
   return (
     <header className="sticky top-0 z-40 border-b border-border/50 bg-card shadow-sm">
       <div className="mx-auto flex max-w-3xl items-center justify-between gap-2 px-4 py-3">
-        <Link to="/" className="flex items-center gap-2 group">
+        <Link to="/" className="flex items-center gap-2.5 group">
           <span
-            className="relative flex h-9 w-9 items-center justify-center rounded-xl text-primary-foreground overflow-hidden"
+            className="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-primary-foreground"
             style={{
-              background: "linear-gradient(to bottom right, var(--primary), var(--accent))",
-              boxShadow: "0 4px 6px rgba(47,107,91,0.3), inset 0 0 0 1px rgba(47,107,91,0.2)",
+              ...(!siteIcon ? {
+                background: "linear-gradient(to bottom right, var(--primary), var(--accent))",
+                boxShadow: "0 4px 6px rgba(47,107,91,0.3), inset 0 0 0 1px rgba(47,107,91,0.2)",
+              } : {
+                boxShadow: "0 2px 4px rgba(0,0,0,0.08), inset 0 0 0 1px rgba(0,0,0,0.06)",
+              }),
             }}
           >
             {siteIcon ? (
-              <img src={siteIcon} alt={siteName} className="h-full w-full object-cover" />
+              <img src={siteIcon} alt={siteName} className="h-full w-full rounded-xl object-contain" />
             ) : (
-              <EightPointStar size={20} />
+              <EightPointStar size={22} />
             )}
           </span>
-          <div className="leading-tight">
-            <div className="text-base font-semibold font-serif-cn text-foreground">{siteName}</div>
-            <div className="text-[10px] text-muted-foreground tracking-wide">JING·YUAN</div>
-          </div>
+          <span className="text-lg font-semibold font-serif-cn text-foreground leading-tight">{siteName}</span>
         </Link>
 
         <div className="flex items-center gap-1">

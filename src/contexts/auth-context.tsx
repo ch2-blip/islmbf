@@ -60,7 +60,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [])
 
   function usernameToEmail(username: string) {
-    return `${username.trim().toLowerCase()}@jingyuan.local`
+    const normalized = username.trim().toLowerCase()
+    return `${encodeURIComponent(normalized)}@jingyuan.local`
   }
 
   async function signIn(username: string, password: string) {

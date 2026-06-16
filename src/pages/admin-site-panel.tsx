@@ -143,8 +143,8 @@ export function SiteSettingsPanel() {
   async function uploadIcon(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
     if (!file) return
-    if (file.size > 2 * 1024 * 1024) {
-      toast.error("图标不能超过 2MB")
+    if (file.size > 10 * 1024 * 1024) {
+      toast.error("图标不能超过 10MB")
       return
     }
     setUploading(true)
@@ -209,7 +209,7 @@ export function SiteSettingsPanel() {
           <Label>网站图标</Label>
           <div className="flex items-center gap-3">
             {iconUrl ? (
-              <img src={iconUrl} alt="" className="h-12 w-12 rounded-lg border object-cover" />
+              <img src={iconUrl} alt="" className="h-12 w-12 rounded-lg border object-contain" />
             ) : (
               <div className="h-12 w-12 rounded-lg border bg-muted" />
             )}

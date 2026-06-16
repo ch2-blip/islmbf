@@ -4,7 +4,24 @@ import type { SiteSettings } from "@/lib/database.types"
 import { applyThemePreset, applyTextDepth, getCachedTextDepth, THEME_PRESETS } from "@/lib/theme-presets"
 import type { ThemePresetKey } from "@/lib/database.types"
 
-const CACHE_KEY = "site-settings-cache"
+export const CACHE_KEY = "site-settings-cache"
+
+/** Sync document.title and favicon <link> to match current settings */
+function applySiteMeta(s: SiteSettings) {
+  if (s.site_name) {
+    document.title = s.site_name
+  }
+  if (s.site_icon_url) {
+    let link = document.querySelector<HTMLLinkElement>('link[rel="icon"]')
+    if (link) {
+      link.href = s.site_icon_url
+    }
+    let appleLink = document.querySelector<HTMLLinkElement>('link[rel="apple-touch-icon"]')
+    if (appleLink) {
+      appleLink.href = s.site_icon_url
+    }
+  }
+}
 
 const DEFAULTS: SiteSettings = {
   id: 1,
@@ -69,12 +86,14 @@ export function SiteSettingsProvider({ children }: { children: ReactNode }) {
       writeCache(next)
       applyThemePreset(next.theme_preset)
       applyTextDepth(getCachedTextDepth())
+      applySiteMeta(next)
     }
   }
 
   useEffect(() => {
     applyThemePreset(settings.theme_preset)
     applyTextDepth(getCachedTextDepth())
+    applySiteMeta(settings)
     refresh()
     function onUpdate() {
       refresh()

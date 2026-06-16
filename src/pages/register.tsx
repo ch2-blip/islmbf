@@ -11,7 +11,7 @@ import { useSiteSettings } from "@/contexts/site-settings-context"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Lock } from "lucide-react"
 
-const USERNAME_RE = /^[a-zA-Z0-9_\u4e00-\u9fa5]{2,20}$/
+const USERNAME_RE = /^[a-zA-Z0-9_\-\u4e00-\u9fa5]{2,20}$/
 
 export function RegisterPage() {
   const { signUp } = useAuth()
@@ -24,7 +24,7 @@ export function RegisterPage() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     if (!USERNAME_RE.test(username.trim())) {
-      toast.error("用户名需 2-20 位，仅支持中文、字母、数字与下划线")
+      toast.error("用户名需 2-20 位，支持中文、字母、数字、下划线和短横线")
       return
     }
     if (password.length < 6) {

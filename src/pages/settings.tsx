@@ -38,8 +38,8 @@ export function SettingsPage() {
   async function uploadAvatar(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
     if (!file || !user) return
-    if (file.size > 3 * 1024 * 1024) {
-      toast.error("图片不能超过 3MB")
+    if (file.size > 10 * 1024 * 1024) {
+      toast.error("图片不能超过 10MB")
       return
     }
     setUploading(true)
@@ -122,7 +122,7 @@ export function SettingsPage() {
                 <Upload className="h-4 w-4" />
                 {uploading ? "上传中..." : "上传头像"}
               </Button>
-              <p className="text-xs text-muted-foreground mt-1.5">支持 JPG / PNG，不超过 3MB</p>
+              <p className="text-xs text-muted-foreground mt-1.5">支持 JPG / PNG，最大 10MB</p>
             </div>
           </div>
         </div>
