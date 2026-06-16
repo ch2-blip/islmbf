@@ -55,6 +55,33 @@ export function TopBar() {
     return () => window.removeEventListener('popstate', handlePopstate)
   }, [userMenuOpen])
 
+  // Close menu on page scroll or touch-move (mobile)
+  useEffect(() => {
+    if (!userMenuOpen) return
+
+    const handleScrollOrTouch = (e: Event) => {
+      // Don't close if scrolling within the dropdown menu content itself
+      const target = e.target as HTMLElement
+      if (target?.closest?.('[data-slot="dropdown-menu-content"]')) return
+      // Clean up history and close menu
+      if (historyPushedRef.current) {
+        historyPushedRef.current = false
+        history.back()
+      }
+      setUserMenuOpen(false)
+    }
+
+    // scroll doesn't bubble, use capture phase to catch all scroll events
+    window.addEventListener('scroll', handleScrollOrTouch, { passive: true, capture: true })
+    window.addEventListener('touchmove', handleScrollOrTouch, { passive: true })
+
+    return () => {
+      window.removeEventListener('scroll', handleScrollOrTouch, { capture: true })
+      window.removeEventListener('touchmove', handleScrollOrTouch)
+    }
+  }, [userMenuOpen])
+
+  // Handle open/close from Radix (trigger click, click outside, Escape)
   const handleUserMenuOpenChange = useCallback((open: boolean) => {
     if (open) {
       // Opening: push a history entry so back button can intercept
@@ -65,7 +92,7 @@ export function TopBar() {
       closedByPopstateRef.current = false
       setUserMenuOpen(true)
     } else {
-      // Closing: if NOT caused by popstate, we need to pop our history entry
+      // Closing via click-outside or Escape: pop our history entry
       if (historyPushedRef.current && !closedByPopstateRef.current) {
         historyPushedRef.current = false
         history.back()
@@ -74,6 +101,27 @@ export function TopBar() {
       setUserMenuOpen(false)
     }
   }, [])
+
+  // Navigate from a menu item click.
+  // Uses replace:true to overwrite our pushed history entry with the target route,
+  // so onOpenChange's history.back() won't undo the navigation.
+  const handleMenuNavigate = useCallback((path: string) => {
+    const shouldReplace = historyPushedRef.current
+    historyPushedRef.current = false
+    closedByPopstateRef.current = false
+    setUserMenuOpen(false)
+    nav(path, shouldReplace ? { replace: true } : undefined)
+  }, [nav])
+
+  // Sign out from menu: same history cleanup pattern
+  const handleMenuSignOut = useCallback(async () => {
+    const shouldReplace = historyPushedRef.current
+    historyPushedRef.current = false
+    closedByPopstateRef.current = false
+    setUserMenuOpen(false)
+    await signOut()
+    nav("/", shouldReplace ? { replace: true } : undefined)
+  }, [signOut, nav])
 
   const siteName = settings.site_name || "静园"
   const siteIcon = settings.site_icon_url || ""
@@ -169,35 +217,35 @@ export function TopBar() {
                   </div>
                 </DropdownMenuLabel>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={() => nav("/me")}>
+                <DropdownMenuItem onClick={() => handleMenuNavigate("/me")}>
                   <UserIcon className="mr-2 h-4 w-4" />
                   个人中心
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => nav("/me/drafts")}>
+                <DropdownMenuItem onClick={() => handleMenuNavigate("/me/drafts")}>
                   <FileText className="mr-2 h-4 w-4" />
                   我的草稿
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => nav("/me/bookmarks")}>
+                <DropdownMenuItem onClick={() => handleMenuNavigate("/me/bookmarks")}>
                   <Bookmark className="mr-2 h-4 w-4" />
                   我的收藏
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => nav("/me/likes")}>
+                <DropdownMenuItem onClick={() => handleMenuNavigate("/me/likes")}>
                   <Heart className="mr-2 h-4 w-4" />
                   我的点赞
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={() => nav("/settings")}>
+                <DropdownMenuItem onClick={() => handleMenuNavigate("/settings")}>
                   <Settings className="mr-2 h-4 w-4" />
                   账号设置
                 </DropdownMenuItem>
                 {isAdmin && (
-                  <DropdownMenuItem onClick={() => nav("/admin")}>
+                  <DropdownMenuItem onClick={() => handleMenuNavigate("/admin")}>
                     <Shield className="mr-2 h-4 w-4" />
                     管理后台
                   </DropdownMenuItem>
                 )}
                 <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={async () => { await signOut(); nav("/") }}>
+                <DropdownMenuItem onClick={handleMenuSignOut}>
                   <LogOut className="mr-2 h-4 w-4" />
                   退出登录
                 </DropdownMenuItem>
