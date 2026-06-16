@@ -11,6 +11,7 @@ import { timeAgo } from "@/lib/hijri"
 import { getCache, setCache } from "@/lib/page-cache"
 import { HomeHero } from "@/components/home-hero"
 import { fetchStaticHome, checkVersionChanged } from "@/lib/static-data"
+import { prefetchTopics } from "@/lib/topic-prefetch"
 
 type HomeCache = {
   articles: Article[]
@@ -38,6 +39,14 @@ export function HomePage() {
   useEffect(() => {
     loadAll()
   }, [])
+
+  // Prefetch first 15 topic details when topics tab is visible
+  useEffect(() => {
+    if (tab === "topics" && topics.length > 0) {
+      const ids = topics.slice(0, 15).map((t) => t.id)
+      prefetchTopics(ids)
+    }
+  }, [tab, topics.length > 0])
 
   /**
    * Load priority:

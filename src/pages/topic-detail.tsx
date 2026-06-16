@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button"
 import { CommentSection } from "@/components/comment-section"
 import { getCache, setCache } from "@/lib/page-cache"
 import { fetchStaticTopic } from "@/lib/static-data"
+import { getPrefetchedSnapshot } from "@/lib/topic-prefetch"
 import { Heart, Share2, ArrowLeft, Trash2, Pencil, Pin, Lock } from "lucide-react"
 import { timeAgo } from "@/lib/hijri"
 import { useAuth } from "@/contexts/auth-context"
@@ -26,7 +27,9 @@ export function TopicDetailPage() {
   const { user, isModerator } = useAuth()
 
   /* ── Combined cache hit: topic + comments appear together ── */
-  const cached = id ? getCache<TopicSnapshot>(`topic-snap:${id}`) : undefined
+  const cached = id
+    ? getPrefetchedSnapshot(id) ?? getCache<TopicSnapshot>(`topic-snap:${id}`)
+    : undefined
   const [topic, setTopic] = useState<Topic | null>(cached?.topic ?? null)
   const [cachedComments, setCachedComments] = useState<Comment[]>(cached?.comments ?? [])
   const [loaded, setLoaded] = useState(!!cached)
@@ -46,8 +49,9 @@ export function TopicDetailPage() {
     // Scroll to top only when navigating forward (PUSH), not on browser back (POP)
     if (navType !== "POP") window.scrollTo(0, 0)
 
-    // Try combined cache for instant display
-    const snap = getCache<TopicSnapshot>(`topic-snap:${id}`)
+    // Try prefetch cache first, then sessionStorage
+    const snap =
+      getPrefetchedSnapshot(id) ?? getCache<TopicSnapshot>(`topic-snap:${id}`)
     if (snap) {
       setTopic(snap.topic)
       setCachedComments(snap.comments)
@@ -222,7 +226,7 @@ export function TopicDetailPage() {
   }
 
   if (!topic) {
-    if (!loaded) return <div className="px-4 pt-4 min-h-[60vh]" />
+    if (!loaded) return <div className="px-4 pt-4 min-h-[60vh] bg-background" />
     return (
       <div className="px-4 pt-12 text-center min-h-[60vh]">
         <p className="text-muted-foreground mb-4">话题不存在或已删除</p>

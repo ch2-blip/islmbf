@@ -1,15 +1,82 @@
-import { Link } from "react-router-dom"
+import { useRef, useEffect, useState, useCallback } from "react"
+import { useNavigate } from "react-router-dom"
 import type { Topic } from "@/lib/database.types"
 import { UserAvatar, UserNameWithBadge } from "@/components/user-avatar"
 import { MessageCircle, Pin, Lock } from "lucide-react"
 import { timeAgo } from "@/lib/hijri"
 import { Badge } from "@/components/ui/badge"
+import { prefetchTopic, getPrefetchedSnapshot, waitForPrefetch } from "@/lib/topic-prefetch"
 
 export function TopicCard({ topic }: { topic: Topic }) {
+  const nav = useNavigate()
+  const cardRef = useRef<HTMLDivElement>(null)
+  const [pressing, setPressing] = useState(false)
+
+  /* ── IntersectionObserver: prefetch when card approaches viewport ── */
+  useEffect(() => {
+    const el = cardRef.current
+    if (!el) return
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          prefetchTopic(topic.id)
+          observer.disconnect()
+        }
+      },
+      { rootMargin: "1000px 0px" },
+    )
+    observer.observe(el)
+    return () => observer.disconnect()
+  }, [topic.id])
+
+  /* ── Pointerdown: start prefetch immediately on touch ── */
+  const handlePointerDown = useCallback(() => {
+    prefetchTopic(topic.id)
+    setPressing(true)
+  }, [topic.id])
+
+  const handlePointerUp = useCallback(() => {
+    setPressing(false)
+  }, [])
+
+  /* ── Click: if cached, navigate instantly; otherwise wait up to 500ms ── */
+  const handleClick = useCallback(
+    async (e: React.MouseEvent) => {
+      e.preventDefault()
+
+      // Instant if already cached
+      if (getPrefetchedSnapshot(topic.id)) {
+        nav(`/topic/${topic.id}`)
+        return
+      }
+
+      // Kick off prefetch (might already be in-flight from pointerdown)
+      prefetchTopic(topic.id)
+
+      // Wait up to 500ms for data
+      setPressing(true)
+      await waitForPrefetch(topic.id, 500)
+      setPressing(false)
+
+      // Navigate regardless (detail page has its own fallback)
+      nav(`/topic/${topic.id}`)
+    },
+    [topic.id, nav],
+  )
+
   return (
-    <Link
-      to={`/topic/${topic.id}`}
-      className="block group border-b border-border/60 last:border-b-0 hover:bg-muted/40 transition-colors"
+    <div
+      ref={cardRef}
+      onPointerDown={handlePointerDown}
+      onPointerUp={handlePointerUp}
+      onPointerCancel={handlePointerUp}
+      onClick={handleClick}
+      role="link"
+      tabIndex={0}
+      className={`block group border-b border-border/60 last:border-b-0 cursor-pointer
+        transition-all duration-150
+        ${pressing ? "bg-muted/60 scale-[0.995]" : "hover:bg-muted/40"}`}
     >
       <div className="flex items-start gap-3 p-4">
         <UserAvatar profile={topic.author} size="md" className="shrink-0" />
@@ -46,6 +113,6 @@ export function TopicCard({ topic }: { topic: Topic }) {
           </div>
         </div>
       </div>
-    </Link>
+    </div>
   )
 }
