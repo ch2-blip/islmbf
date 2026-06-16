@@ -1,4 +1,5 @@
-import { Link, useNavigate } from "react-router-dom"
+import { useState, useEffect, useRef, useCallback } from "react"
+import { Link, useNavigate, useLocation } from "react-router-dom"
 import { useAuth } from "@/contexts/auth-context"
 import { useSiteSettings } from "@/contexts/site-settings-context"
 import { Button } from "@/components/ui/button"
@@ -15,10 +16,64 @@ import { Search, LogOut, User as UserIcon, Shield, Settings, SquarePen as PenSqu
 import { EightPointStar } from "./geometric-pattern"
 import { InstallPwaButton } from "./install-pwa-button"
 
+const USER_MENU_STATE = { modal: 'user-menu' } as const
+
 export function TopBar() {
   const { profile, user, isAdmin, signOut } = useAuth()
   const { settings } = useSiteSettings()
   const nav = useNavigate()
+  const location = useLocation()
+
+  // ---- Controlled user menu with mobile back-button support ----
+  const [userMenuOpen, setUserMenuOpen] = useState(false)
+  // Tracks whether we pushed a history entry for this menu session
+  const historyPushedRef = useRef(false)
+  // Tracks whether the close was triggered by popstate (back button)
+  const closedByPopstateRef = useRef(false)
+
+  // Close menu on route change
+  useEffect(() => {
+    if (userMenuOpen) {
+      setUserMenuOpen(false)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [location.pathname])
+
+  // Listen for popstate (back button) while menu is open
+  useEffect(() => {
+    if (!userMenuOpen) return
+
+    const handlePopstate = () => {
+      if (userMenuOpen) {
+        closedByPopstateRef.current = true
+        historyPushedRef.current = false
+        setUserMenuOpen(false)
+      }
+    }
+
+    window.addEventListener('popstate', handlePopstate)
+    return () => window.removeEventListener('popstate', handlePopstate)
+  }, [userMenuOpen])
+
+  const handleUserMenuOpenChange = useCallback((open: boolean) => {
+    if (open) {
+      // Opening: push a history entry so back button can intercept
+      if (!historyPushedRef.current) {
+        history.pushState(USER_MENU_STATE, '')
+        historyPushedRef.current = true
+      }
+      closedByPopstateRef.current = false
+      setUserMenuOpen(true)
+    } else {
+      // Closing: if NOT caused by popstate, we need to pop our history entry
+      if (historyPushedRef.current && !closedByPopstateRef.current) {
+        historyPushedRef.current = false
+        history.back()
+      }
+      closedByPopstateRef.current = false
+      setUserMenuOpen(false)
+    }
+  }, [])
 
   const siteName = settings.site_name || "静园"
   const siteIcon = settings.site_icon_url || ""
@@ -95,7 +150,7 @@ export function TopBar() {
           )}
 
           {user ? (
-            <DropdownMenu>
+            <DropdownMenu open={userMenuOpen} onOpenChange={handleUserMenuOpenChange}>
               <DropdownMenuTrigger asChild>
                 <Button
                   variant="ghost"
