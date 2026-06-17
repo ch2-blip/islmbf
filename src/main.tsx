@@ -11,19 +11,25 @@ import { supabase } from "@/lib/supabase"
 applyThemePreset(getCachedThemePreset())
 
 /* Pre-set title & favicon from cache before React paints — eliminates flash of old content */
+function applyPreMountBrand(data: { site_name?: string; site_icon_url?: string }) {
+  if (data.site_name) document.title = data.site_name
+  if (data.site_icon_url) {
+    const iconLink = document.querySelector<HTMLLinkElement>('link[rel="icon"]')
+    if (iconLink) iconLink.href = data.site_icon_url
+    const appleLink = document.querySelector<HTMLLinkElement>('link[rel="apple-touch-icon"]')
+    if (appleLink) appleLink.href = data.site_icon_url
+  }
+}
 try {
   const raw = localStorage.getItem(CACHE_KEY)
   if (raw) {
-    const cached = JSON.parse(raw)
-    if (cached.site_name) {
-      document.title = cached.site_name
-    }
-    if (cached.site_icon_url) {
-      const iconLink = document.querySelector<HTMLLinkElement>('link[rel="icon"]')
-      if (iconLink) iconLink.href = cached.site_icon_url
-      const appleLink = document.querySelector<HTMLLinkElement>('link[rel="apple-touch-icon"]')
-      if (appleLink) appleLink.href = cached.site_icon_url
-    }
+    applyPreMountBrand(JSON.parse(raw))
+  } else {
+    // No cache (first visit) — try static-data for instant brand
+    fetch('/static-data/site-settings.json?t=' + Date.now())
+      .then(r => r.ok ? r.json() : null)
+      .then(d => { if (d) applyPreMountBrand(d) })
+      .catch(() => {})
   }
 } catch { /* ignore parse errors */ }
 
@@ -34,7 +40,7 @@ async function refreshManifest() {
       .select("site_name, site_icon_url")
       .eq("id", 1)
       .maybeSingle()
-    const name = data?.site_name || "静园"
+    const name = data?.site_name || ""
     const icon = data?.site_icon_url || "/pwa-icon-512.webp"
     const manifest = {
       id: "/",

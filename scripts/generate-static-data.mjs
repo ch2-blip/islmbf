@@ -231,6 +231,33 @@ async function main() {
   }
   console.log(`   ${announcement ? "✓ Found active announcement" : "– No active announcement"}`)
 
+  // ── 3.5. Fetch site settings ──
+  console.log("\n⚙️  Fetching site settings...")
+  let siteSettings = null
+  const { data: ssData, error: ssErr } = await supabase
+    .from("site_settings")
+    .select("*")
+    .eq("id", 1)
+    .maybeSingle()
+
+  if (ssErr) {
+    console.error("⚠️ Site settings fetch failed (non-fatal):", ssErr.message)
+  } else if (ssData) {
+    siteSettings = ssData
+    console.log(`   ✓ Site name: ${ssData.site_name || "(empty)"}`)
+  } else {
+    console.log("   – No site settings found")
+  }
+
+  // ── 3.6. Write site-settings.json (atomic) ──
+  if (siteSettings) {
+    console.log("\n📦 Writing site-settings.json...")
+    atomicWriteJSON(resolve(outDir, "site-settings.json"), {
+      ...siteSettings,
+      generatedAt: now,
+    })
+  }
+
   // ── 4. Write home.json (atomic) ──
   console.log("\n📦 Writing home.json...")
   const homeData = {
@@ -282,6 +309,7 @@ async function main() {
     homeVersion: now,
     articlesVersion: now,
     topicsVersion: now,
+    siteSettingsVersion: now,
     articleCount: articles.length,
     topicCount: topics.length,
   }
@@ -291,6 +319,7 @@ async function main() {
   const elapsed = ((Date.now() - startTime) / 1000).toFixed(1)
   console.log("\n" + "─".repeat(50))
   console.log("✅ Static data generation complete!")
+  console.log(`   Site settings:     ${siteSettings ? "✓" : "–"}`)
   console.log(`   Articles (list):   ${articles.length}`)
   console.log(`   Articles (detail): ${articleCount} JSON files`)
   console.log(`   Topics (list):     ${topics.length}`)

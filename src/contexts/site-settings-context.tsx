@@ -3,6 +3,7 @@ import { supabase } from "@/lib/supabase"
 import type { SiteSettings } from "@/lib/database.types"
 import { applyThemePreset, applyTextDepth, getCachedTextDepth, THEME_PRESETS } from "@/lib/theme-presets"
 import type { ThemePresetKey } from "@/lib/database.types"
+import { fetchStaticSiteSettings } from "@/lib/static-data"
 
 export const CACHE_KEY = "site-settings-cache"
 
@@ -25,14 +26,14 @@ function applySiteMeta(s: SiteSettings) {
 
 const DEFAULTS: SiteSettings = {
   id: 1,
-  site_name: "静园",
+  site_name: "",
   site_icon_url: "",
   allow_video_posts: false,
   theme_preset: "stone-burgundy",
   hero_enabled: true,
   hero_eyebrow: "AS-SALĀMU 'ALAYKUM",
-  hero_title: "愿平安与宁静与你同在",
-  hero_subtitle: "在静园，以经训润心，以清语会友",
+  hero_title: "",
+  hero_subtitle: "",
   hero_size: "standard",
   hero_variant: "auto",
   hero_glow: true,
@@ -63,6 +64,15 @@ function writeCache(s: SiteSettings) {
   }
 }
 
+/** Validate and normalize theme preset key */
+function normalizePreset(data: any): SiteSettings {
+  const dbPreset = data.theme_preset as string
+  if (dbPreset && !(dbPreset in THEME_PRESETS)) {
+    data.theme_preset = "stone-burgundy" as ThemePresetKey
+  }
+  return { ...DEFAULTS, ...data } as SiteSettings
+}
+
 interface Ctx {
   settings: SiteSettings
   refresh: () => Promise<void>
@@ -76,12 +86,7 @@ export function SiteSettingsProvider({ children }: { children: ReactNode }) {
   async function refresh() {
     const { data } = await supabase.from("site_settings").select("*").eq("id", 1).maybeSingle()
     if (data) {
-      /* If DB has an old/deleted theme key, fall back to stone-burgundy */
-      const dbPreset = data.theme_preset as string
-      if (dbPreset && !(dbPreset in THEME_PRESETS)) {
-        data.theme_preset = "stone-burgundy" as ThemePresetKey
-      }
-      const next = { ...DEFAULTS, ...data } as SiteSettings
+      const next = normalizePreset(data)
       setSettings(next)
       writeCache(next)
       applyThemePreset(next.theme_preset)
@@ -91,10 +96,35 @@ export function SiteSettingsProvider({ children }: { children: ReactNode }) {
   }
 
   useEffect(() => {
-    applyThemePreset(settings.theme_preset)
+    const cached = readCache()
+    const hasCache = !!cached.site_name
+
+    // Apply whatever we have immediately
+    applyThemePreset(cached.theme_preset)
     applyTextDepth(getCachedTextDepth())
-    applySiteMeta(settings)
-    refresh()
+    if (hasCache) applySiteMeta(cached)
+
+    // If no localStorage cache, try static JSON first for instant brand display
+    if (!hasCache) {
+      fetchStaticSiteSettings<SiteSettings>().then((staticData) => {
+        if (staticData?.site_name) {
+          const next = normalizePreset(staticData)
+          setSettings(next)
+          writeCache(next)
+          applyThemePreset(next.theme_preset)
+          applyTextDepth(getCachedTextDepth())
+          applySiteMeta(next)
+        }
+        // Always revalidate from Supabase in background
+        refresh()
+      }).catch(() => {
+        refresh()
+      })
+    } else {
+      // Has cache — just revalidate from Supabase
+      refresh()
+    }
+
     function onUpdate() {
       refresh()
     }

@@ -89,3 +89,18 @@ export async function checkVersionChanged(): Promise<{ changed: boolean; version
     return { changed: false }
   }
 }
+
+/**
+ * Fetch site settings from static JSON.
+ * Used for first-visit brand display before Supabase loads.
+ * Returns null on failure — caller should fallback gracefully.
+ */
+export async function fetchStaticSiteSettings<T>(): Promise<T | null> {
+  try {
+    const res = await fetch(`${BASE}/site-settings.json?t=${Date.now()}`)
+    if (!res.ok) return null
+    return await res.json()
+  } catch {
+    return null
+  }
+}

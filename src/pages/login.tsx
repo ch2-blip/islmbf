@@ -1,6 +1,7 @@
 import { useState } from "react"
 import { useNavigate, Link } from "react-router-dom"
 import { useAuth } from "@/contexts/auth-context"
+import { useSiteSettings } from "@/contexts/site-settings-context"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -10,10 +11,14 @@ import { EightPointStar } from "@/components/geometric-pattern"
 
 export function LoginPage() {
   const { signIn } = useAuth()
+  const { settings } = useSiteSettings()
   const nav = useNavigate()
   const [username, setUsername] = useState("")
   const [password, setPassword] = useState("")
   const [loading, setLoading] = useState(false)
+
+  const siteName = settings.site_name || ""
+  const siteIcon = settings.site_icon_url || ""
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -24,7 +29,7 @@ export function LoginPage() {
       toast.error("登录失败：用户名或密码错误")
       return
     }
-    toast.success("欢迎回到静园")
+    toast.success(siteName ? `欢迎回到${siteName}` : "登录成功")
     nav("/")
   }
 
@@ -32,13 +37,26 @@ export function LoginPage() {
     <div className="min-h-svh flex items-center justify-center bg-background px-4 py-12">
       <div className="w-full max-w-md space-y-6">
         <Link to="/" className="flex flex-col items-center gap-3">
-          <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-lg shadow-primary/20">
-            <EightPointStar size={32} />
-          </div>
-          <div className="text-center">
-            <h1 className="text-2xl font-serif-cn font-semibold">静园</h1>
-            <p className="text-xs text-muted-foreground mt-1 tracking-wider">JING·YUAN</p>
-          </div>
+          <span
+            className="relative flex h-14 w-14 shrink-0 items-center justify-center rounded-xl text-primary-foreground"
+            style={{
+              ...(!siteIcon ? {
+                background: "linear-gradient(to bottom right, var(--primary), var(--accent))",
+                boxShadow: "0 4px 6px rgba(47,107,91,0.3), inset 0 0 0 1px rgba(47,107,91,0.2)",
+              } : {
+                boxShadow: "0 2px 4px rgba(0,0,0,0.08), inset 0 0 0 1px rgba(0,0,0,0.06)",
+              }),
+            }}
+          >
+            {siteIcon ? (
+              <img src={siteIcon} alt={siteName} className="h-full w-full rounded-xl object-contain" />
+            ) : (
+              <EightPointStar size={32} />
+            )}
+          </span>
+          {siteName && (
+            <h1 className="text-2xl font-serif-cn font-semibold">{siteName}</h1>
+          )}
         </Link>
 
         <Card className="border-border/70 shadow-sm">

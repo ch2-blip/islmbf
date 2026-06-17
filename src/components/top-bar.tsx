@@ -123,7 +123,7 @@ export function TopBar() {
     nav("/", shouldReplace ? { replace: true } : undefined)
   }, [signOut, nav])
 
-  const siteName = settings.site_name || "静园"
+  const siteName = settings.site_name || ""
   const siteIcon = settings.site_icon_url || ""
 
   return (

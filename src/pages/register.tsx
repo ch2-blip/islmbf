@@ -21,6 +21,9 @@ export function RegisterPage() {
   const [password, setPassword] = useState("")
   const [loading, setLoading] = useState(false)
 
+  const siteName = settings.site_name || ""
+  const siteIcon = settings.site_icon_url || ""
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     if (!USERNAME_RE.test(username.trim())) {
@@ -42,7 +45,7 @@ export function RegisterPage() {
       }
       return
     }
-    toast.success("注册成功，欢迎加入静园")
+    toast.success(siteName ? `注册成功，欢迎加入${siteName}` : "注册成功")
     nav("/")
   }
 
@@ -50,12 +53,27 @@ export function RegisterPage() {
     <div className="min-h-svh flex items-center justify-center bg-background px-4 py-12">
       <div className="w-full max-w-md space-y-6">
         <Link to="/" className="flex flex-col items-center gap-3">
-          <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-lg shadow-primary/20">
-            <EightPointStar size={32} />
-          </div>
+          <span
+            className="relative flex h-14 w-14 shrink-0 items-center justify-center rounded-xl text-primary-foreground"
+            style={{
+              ...(!siteIcon ? {
+                background: "linear-gradient(to bottom right, var(--primary), var(--accent))",
+                boxShadow: "0 4px 6px rgba(47,107,91,0.3), inset 0 0 0 1px rgba(47,107,91,0.2)",
+              } : {
+                boxShadow: "0 2px 4px rgba(0,0,0,0.08), inset 0 0 0 1px rgba(0,0,0,0.06)",
+              }),
+            }}
+          >
+            {siteIcon ? (
+              <img src={siteIcon} alt={siteName} className="h-full w-full rounded-xl object-contain" />
+            ) : (
+              <EightPointStar size={32} />
+            )}
+          </span>
           <div className="text-center">
-            <h1 className="text-2xl font-serif-cn font-semibold">加入静园</h1>
-            <p className="text-xs text-muted-foreground mt-1">共读、共思、共行</p>
+            <h1 className="text-2xl font-serif-cn font-semibold">
+              {siteName ? `加入${siteName}` : "创建账号"}
+            </h1>
           </div>
         </Link>
 
