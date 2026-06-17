@@ -8,11 +8,11 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Card } from "@/components/ui/card"
 import { toast } from "sonner"
-import { ArrowLeft, Upload } from "lucide-react"
+import { ArrowLeft, Upload, KeyRound } from "lucide-react"
 import { UserAvatar } from "@/components/user-avatar"
 
 export function SettingsPage() {
-  const { user, profile, refreshProfile } = useAuth()
+  const { user, profile, refreshProfile, changePassword, signOut } = useAuth()
   const nav = useNavigate()
   const fileRef = useRef<HTMLInputElement>(null)
   const [username, setUsername] = useState("")
@@ -21,6 +21,12 @@ export function SettingsPage() {
   const [phone, setPhone] = useState("")
   const [uploading, setUploading] = useState(false)
   const [saving, setSaving] = useState(false)
+
+  /* ── Password change state ── */
+  const [currentPwd, setCurrentPwd] = useState("")
+  const [newPwd, setNewPwd] = useState("")
+  const [confirmPwd, setConfirmPwd] = useState("")
+  const [changingPwd, setChangingPwd] = useState(false)
 
   useEffect(() => {
     if (!user) {
@@ -77,6 +83,46 @@ export function SettingsPage() {
     }
     await refreshProfile()
     toast.success("已保存")
+  }
+
+  async function handleChangePassword() {
+    // Client-side validation
+    if (!currentPwd) {
+      toast.error("请输入当前密码")
+      return
+    }
+    if (newPwd.length < 8) {
+      toast.error("新密码至少需要 8 位")
+      return
+    }
+    if (newPwd !== confirmPwd) {
+      toast.error("两次输入的新密码不一致")
+      return
+    }
+    if (currentPwd === newPwd) {
+      toast.error("新密码不能与当前密码相同")
+      return
+    }
+
+    setChangingPwd(true)
+    const { error } = await changePassword(currentPwd, newPwd)
+    setChangingPwd(false)
+
+    if (error) {
+      toast.error(error)
+      return
+    }
+
+    toast.success("密码修改成功，请重新登录")
+    setCurrentPwd("")
+    setNewPwd("")
+    setConfirmPwd("")
+
+    // Sign out and redirect to login
+    setTimeout(async () => {
+      await signOut()
+      nav("/login", { replace: true })
+    }, 1500)
   }
 
   return (
@@ -152,6 +198,60 @@ export function SettingsPage() {
       <Button className="w-full" onClick={save} disabled={saving}>
         {saving ? "保存中..." : "保存"}
       </Button>
+
+      {/* ── Change Password Section ── */}
+      <Card className="p-5 space-y-4">
+        <div className="flex items-center gap-2">
+          <KeyRound className="h-4 w-4 text-muted-foreground" />
+          <h2 className="text-base font-semibold font-serif-cn">修改密码</h2>
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="currentPwd">当前密码</Label>
+          <Input
+            id="currentPwd"
+            type="password"
+            value={currentPwd}
+            onChange={(e) => setCurrentPwd(e.target.value)}
+            placeholder="请输入当前密码"
+            autoComplete="current-password"
+          />
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="newPwd">新密码</Label>
+          <Input
+            id="newPwd"
+            type="password"
+            value={newPwd}
+            onChange={(e) => setNewPwd(e.target.value)}
+            placeholder="至少 8 位"
+            autoComplete="new-password"
+          />
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="confirmPwd">确认新密码</Label>
+          <Input
+            id="confirmPwd"
+            type="password"
+            value={confirmPwd}
+            onChange={(e) => setConfirmPwd(e.target.value)}
+            placeholder="再次输入新密码"
+            autoComplete="new-password"
+          />
+        </div>
+
+        <Button
+          className="w-full"
+          variant="outline"
+          onClick={handleChangePassword}
+          disabled={changingPwd || !currentPwd || !newPwd || !confirmPwd}
+        >
+          {changingPwd ? "修改中..." : "修改密码"}
+        </Button>
+      </Card>
     </div>
   )
 }
+

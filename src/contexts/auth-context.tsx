@@ -15,6 +15,7 @@ interface AuthContextValue {
   signUp: (username: string, password: string) => Promise<{ error: string | null }>
   signOut: () => Promise<void>
   refreshProfile: () => Promise<void>
+  changePassword: (currentPassword: string, newPassword: string) => Promise<{ error: string | null }>
 }
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined)
@@ -105,6 +106,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (session) await loadProfile(session.user.id)
   }
 
+  async function changePassword(currentPassword: string, newPassword: string) {
+    if (!profile?.username) return { error: "用户未登录" }
+    // Verify current password by attempting sign-in
+    const email = usernameToEmail(profile.username)
+    const { error: verifyErr } = await supabase.auth.signInWithPassword({
+      email,
+      password: currentPassword,
+    })
+    if (verifyErr) return { error: "当前密码不正确" }
+    // Update to new password
+    const { error: updateErr } = await supabase.auth.updateUser({
+      password: newPassword,
+    })
+    if (updateErr) return { error: updateErr.message }
+    return { error: null }
+  }
+
   const value: AuthContextValue = {
     session,
     user: session?.user ?? null,
@@ -117,6 +135,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     signUp,
     signOut,
     refreshProfile,
+    changePassword,
   }
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
