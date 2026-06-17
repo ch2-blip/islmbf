@@ -22,6 +22,7 @@ import { ArrowLeft, Shield, Users, Flag, Megaphone, TriangleAlert as AlertTriang
 import { timeAgo } from "@/lib/hijri"
 import { SiteSettingsPanel } from "./admin-site-panel"
 import { UsersPanelFull } from "./admin-users-panel"
+import { UserStatsPanel } from "./admin-user-stats"
 
 export function AdminPage() {
   const { isAdmin, isModerator } = useAuth()
@@ -84,7 +85,7 @@ export function AdminPage() {
 
         <TabsContent value="reports" className="mt-4"><ReportsPanel /></TabsContent>
         <TabsContent value="content" className="mt-4"><ContentPanel /></TabsContent>
-        <TabsContent value="users" className="mt-4">{isAdmin && <UsersPanelFull />}</TabsContent>
+        <TabsContent value="users" className="mt-4">{isAdmin && <><UserStatsPanel /><div className="mt-4" /><UsersPanelFull /></>}</TabsContent>
         <TabsContent value="announcements" className="mt-4">{isAdmin && <AnnouncementsPanel />}</TabsContent>
         <TabsContent value="sensitive" className="mt-4">{isAdmin && <SensitivePanel />}</TabsContent>
         <TabsContent value="taxonomy" className="mt-4">{isAdmin && <TaxonomyPanel />}</TabsContent>
