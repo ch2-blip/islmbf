@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { timeAgo } from "@/lib/hijri"
 import { toast } from "sonner"
-import { Reply, Trash2, Flag } from "lucide-react"
+import { Reply, Trash2, Flag, ThumbsUp } from "lucide-react"
 import { useNavigate } from "react-router-dom"
 import {
   Dialog,
@@ -18,17 +18,20 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
+import { setCommentCountOverride } from "@/lib/page-cache"
 
 interface Props {
   targetType: "article" | "topic"
   targetId: string
+  /** The author ID of the parent article/topic — used for "楼主" label and notifications */
+  authorId?: string
   /** Pre-loaded comments for instant display (used by topic-detail cache) */
   initialComments?: Comment[]
   /** Called whenever comments list changes (load, post, delete) */
   onCommentsChange?: (comments: Comment[]) => void
 }
 
-export function CommentSection({ targetType, targetId, initialComments, onCommentsChange }: Props) {
+export function CommentSection({ targetType, targetId, authorId, initialComments, onCommentsChange }: Props) {
   const { user, profile, isModerator } = useAuth()
   const nav = useNavigate()
   const [comments, setComments] = useState<Comment[]>(initialComments ?? [])
@@ -37,10 +40,31 @@ export function CommentSection({ targetType, targetId, initialComments, onCommen
   const [submitting, setSubmitting] = useState(false)
   const [reportOpen, setReportOpen] = useState<Comment | null>(null)
   const [reportReason, setReportReason] = useState("")
+  const [likedIds, setLikedIds] = useState<Set<string>>(new Set())
 
   useEffect(() => {
     load()
   }, [targetType, targetId])
+
+  // Load which comments the current user has liked
+  useEffect(() => {
+    if (!user) return
+    supabase
+      .from("reactions")
+      .select("target_id")
+      .eq("user_id", user.id)
+      .eq("target_type", "comment")
+      .eq("reaction_type", "like")
+      .then(({ data }) => {
+        if (data) setLikedIds(new Set(data.map((r: any) => r.target_id)))
+      })
+  }, [user?.id])
+
+  function updateComments(next: Comment[]) {
+    setComments(next)
+    onCommentsChange?.(next)
+    setCommentCountOverride(targetId, next.length)
+  }
 
   async function load() {
     const { data } = await supabase
@@ -49,10 +73,11 @@ export function CommentSection({ targetType, targetId, initialComments, onCommen
       .eq("target_type", targetType)
       .eq("target_id", targetId)
       .eq("is_deleted", false)
-      .order("created_at", { ascending: true })
+      .order("created_at", { ascending: false })
     const next = (data as Comment[]) ?? []
     setComments(next)
     onCommentsChange?.(next)
+    setCommentCountOverride(targetId, next.length)
   }
 
   async function submit() {
@@ -66,22 +91,58 @@ export function CommentSection({ targetType, targetId, initialComments, onCommen
       return
     }
     setSubmitting(true)
-    const { error } = await supabase.from("comments").insert({
-      author_id: user.id,
-      target_type: targetType,
-      target_id: targetId,
-      parent_id: replyTo?.id ?? null,
-      content: content.trim(),
-    })
-    setSubmitting(false)
-    if (error) {
-      toast.error("发送失败：" + error.message)
-      return
+    try {
+      const { data: inserted, error } = await supabase.from("comments").insert({
+        author_id: user.id,
+        target_type: targetType,
+        target_id: targetId,
+        parent_id: replyTo?.id ?? null,
+        content: content.trim(),
+      }).select("*, author:profiles!comments_author_id_fkey(*)").single()
+      if (error) {
+        toast.error("发送失败：" + error.message)
+        return
+      }
+      toast.success("评论已发送")
+
+      if (inserted) {
+        updateComments([inserted as Comment, ...comments])
+      }
+
+      // Send notification via RPC (requires Supabase SQL to be executed first)
+      if (authorId && authorId !== user.id) {
+        const label = targetType === "article" ? "文章" : "话题"
+        supabase.rpc("send_comment_notification", {
+          p_user_id: authorId,
+          p_type: "comment",
+          p_title: `${profile.username} 评论了你的${label}`,
+          p_content: content.trim().slice(0, 80),
+          p_link: `/${targetType === "article" ? "article" : "topic"}/${targetId}`,
+        }).then(({ error: rpcErr }) => {
+          if (rpcErr) console.warn("[notification]", rpcErr.message)
+        })
+      }
+
+      if (replyTo && replyTo.author_id !== user.id && replyTo.author_id !== authorId) {
+        supabase.rpc("send_comment_notification", {
+          p_user_id: replyTo.author_id,
+          p_type: "reply",
+          p_title: `${profile.username} 回复了你的评论`,
+          p_content: content.trim().slice(0, 80),
+          p_link: `/${targetType === "article" ? "article" : "topic"}/${targetId}`,
+        }).then(({ error: rpcErr }) => {
+          if (rpcErr) console.warn("[notification]", rpcErr.message)
+        })
+      }
+
+      setContent("")
+      setReplyTo(null)
+    } catch (err: any) {
+      console.error("[comment-submit]", err)
+      toast.error("发送失败，请检查网络后重试")
+    } finally {
+      setSubmitting(false)
     }
-    toast.success("评论已发送")
-    setContent("")
-    setReplyTo(null)
-    load()
   }
 
   async function deleteComment(id: string) {
@@ -95,7 +156,36 @@ export function CommentSection({ targetType, targetId, initialComments, onCommen
       return
     }
     toast.success("已删除")
-    load()
+    updateComments(comments.filter(c => c.id !== id))
+  }
+
+  async function toggleCommentLike(commentId: string) {
+    if (!user) {
+      toast.error("请先登录")
+      nav("/login")
+      return
+    }
+    const isLiked = likedIds.has(commentId)
+    if (isLiked) {
+      await supabase
+        .from("reactions")
+        .delete()
+        .eq("user_id", user.id)
+        .eq("target_type", "comment")
+        .eq("target_id", commentId)
+        .eq("reaction_type", "like")
+      setLikedIds(prev => { const s = new Set(prev); s.delete(commentId); return s })
+      setComments(prev => prev.map(c => c.id === commentId ? { ...c, like_count: Math.max(0, (c.like_count || 0) - 1) } : c))
+    } else {
+      await supabase.from("reactions").insert({
+        user_id: user.id,
+        target_type: "comment",
+        target_id: commentId,
+        reaction_type: "like",
+      })
+      setLikedIds(prev => new Set(prev).add(commentId))
+      setComments(prev => prev.map(c => c.id === commentId ? { ...c, like_count: (c.like_count || 0) + 1 } : c))
+    }
   }
 
   async function submitReport() {
@@ -120,10 +210,15 @@ export function CommentSection({ targetType, targetId, initialComments, onCommen
   }
 
   const topLevel = comments.filter((c) => !c.parent_id)
-  const replies = (parentId: string) => comments.filter((c) => c.parent_id === parentId)
+  const getReplies = (parentId: string) =>
+    comments.filter((c) => c.parent_id === parentId).sort(
+      (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+    )
+
+  const ownerLabel = targetType === "article" ? "作者" : "楼主"
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-5">
       <h3 className="font-serif-cn text-lg font-semibold flex items-center gap-2">
         评论
         <span className="text-sm font-normal text-muted-foreground">({comments.length})</span>
@@ -162,20 +257,25 @@ export function CommentSection({ targetType, targetId, initialComments, onCommen
         </div>
       )}
 
-      <div className="space-y-5">
+      <div>
         {topLevel.length === 0 && (
           <p className="text-center text-sm text-muted-foreground py-8">还没有评论，来发表第一条吧</p>
         )}
-        {topLevel.map((c) => (
+        {topLevel.map((c, idx) => (
           <CommentItem
             key={c.id}
             comment={c}
-            replies={replies(c.id)}
+            replies={getReplies(c.id)}
             onReply={setReplyTo}
             onDelete={deleteComment}
             onReport={setReportOpen}
+            onToggleLike={toggleCommentLike}
             canDelete={(cc) => user?.id === cc.author_id || isModerator}
             currentUserId={user?.id}
+            authorId={authorId}
+            ownerLabel={ownerLabel}
+            likedIds={likedIds}
+            showDivider={idx > 0}
           />
         ))}
       </div>
@@ -201,84 +301,148 @@ export function CommentSection({ targetType, targetId, initialComments, onCommen
   )
 }
 
+/* ── Owner badge style ──
+ * Use inline style with explicit hex colors to avoid Tailwind oklch/color-mix
+ * issues on mobile browsers (QQ, Baidu) where bg-primary/10 renders as solid block.
+ */
+const ownerBadgeStyle: React.CSSProperties = {
+  display: "inline-flex",
+  alignItems: "center",
+  fontSize: "11px",
+  lineHeight: "1",
+  padding: "2px 8px",
+  borderRadius: "4px",
+  backgroundColor: "#dcfce7",
+  color: "#166534",
+  fontWeight: 600,
+  whiteSpace: "nowrap",
+  border: "1px solid #bbf7d0",
+  letterSpacing: "0.02em",
+}
+
 function CommentItem({
   comment,
   replies,
   onReply,
   onDelete,
   onReport,
+  onToggleLike,
   canDelete,
   currentUserId,
+  authorId,
+  ownerLabel,
+  likedIds,
+  showDivider,
 }: {
   comment: Comment
   replies: Comment[]
   onReply: (c: Comment) => void
   onDelete: (id: string) => void
   onReport: (c: Comment) => void
+  onToggleLike: (id: string) => void
   canDelete: (c: Comment) => boolean
   currentUserId?: string
+  authorId?: string
+  ownerLabel: string
+  likedIds: Set<string>
+  showDivider: boolean
 }) {
+  const isLiked = likedIds.has(comment.id)
+  const isOwner = !!authorId && comment.author_id === authorId
+
   return (
-    <div className="flex gap-3">
-      <UserAvatar profile={comment.author} size="sm" className="shrink-0" />
-      <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-2 flex-wrap mb-1">
-          <UserNameWithBadge profile={comment.author} />
-          {comment.author?.is_verified_scholar && (
-            <span 
-              className="text-[10px] px-1.5 py-0.5 rounded text-accent-foreground"
-              style={{ backgroundColor: "var(--accent-22)" }}
-            >
-              认证学者
-            </span>
-          )}
-          <span className="text-xs text-muted-foreground">{timeAgo(comment.created_at)}</span>
-        </div>
-        <p className="text-sm text-foreground whitespace-pre-wrap break-words leading-relaxed">
-          {comment.content}
-        </p>
-        <div className="mt-2 flex items-center gap-3 text-xs text-muted-foreground">
-          <button className="hover:text-primary flex items-center gap-1" onClick={() => onReply(comment)}>
-            <Reply className="h-3 w-3" /> 回复
-          </button>
-          {canDelete(comment) && (
-            <button className="hover:text-destructive flex items-center gap-1" onClick={() => onDelete(comment.id)}>
-              <Trash2 className="h-3 w-3" /> 删除
-            </button>
-          )}
-          {currentUserId && currentUserId !== comment.author_id && (
-            <button className="hover:text-destructive flex items-center gap-1" onClick={() => onReport(comment)}>
-              <Flag className="h-3 w-3" /> 举报
-            </button>
-          )}
-        </div>
-        {replies.length > 0 && (
-          <div className="mt-3 space-y-3 pl-4 border-l-2 border-border/60">
-            {replies.map((r) => (
-              <div key={r.id} className="flex gap-2.5">
-                <UserAvatar profile={r.author} size="xs" className="shrink-0" />
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-1.5 flex-wrap">
-                    <UserNameWithBadge profile={r.author} />
-                    <span className="text-[10px] text-muted-foreground">{timeAgo(r.created_at)}</span>
-                  </div>
-                  <p className="text-sm text-foreground whitespace-pre-wrap break-words leading-relaxed mt-0.5">
-                    {r.content}
-                  </p>
-                  {canDelete(r) && (
-                    <button
-                      className="mt-1 text-[10px] text-muted-foreground hover:text-destructive"
-                      onClick={() => onDelete(r.id)}
-                    >
-                      删除
-                    </button>
-                  )}
-                </div>
+    <>
+      {showDivider && <div className="border-t border-border/50" />}
+      <div className="py-5">
+        <div className="flex gap-3">
+          <UserAvatar profile={comment.author} size="sm" className="shrink-0 mt-0.5" />
+          <div className="flex-1 min-w-0">
+            {/* Author info */}
+            <div className="flex items-center gap-2 flex-wrap mb-2">
+              <UserNameWithBadge profile={comment.author} />
+              {isOwner && (
+                <span style={ownerBadgeStyle}>{ownerLabel}</span>
+              )}
+              {comment.author?.is_verified_scholar && (
+                <span
+                  className="inline-flex items-center text-[10px] leading-none px-1.5 py-0.5 rounded"
+                  style={{ backgroundColor: "var(--accent-22)", color: "var(--accent-foreground)" }}
+                >
+                  认证学者
+                </span>
+              )}
+              <span className="text-xs text-muted-foreground">{timeAgo(comment.created_at)}</span>
+            </div>
+
+            {/* Comment content */}
+            <div className="mb-3">
+              <p className="text-[15px] text-foreground whitespace-pre-wrap break-words leading-[1.8]">
+                {comment.content}
+              </p>
+            </div>
+
+            {/* Action buttons — right-aligned */}
+            <div className="flex items-center justify-end gap-5 text-xs text-muted-foreground">
+              <button
+                className={`flex items-center gap-1 hover:text-primary transition-colors ${isLiked ? "text-primary" : ""}`}
+                onClick={() => onToggleLike(comment.id)}
+              >
+                <ThumbsUp className={`h-3.5 w-3.5 ${isLiked ? "fill-current" : ""}`} />
+                {(comment.like_count || 0) > 0 ? comment.like_count : "点赞"}
+              </button>
+              <button className="flex items-center gap-1 hover:text-primary transition-colors" onClick={() => onReply(comment)}>
+                <Reply className="h-3.5 w-3.5" /> 回复
+              </button>
+              {canDelete(comment) && (
+                <button className="flex items-center gap-1 hover:text-destructive transition-colors" onClick={() => onDelete(comment.id)}>
+                  <Trash2 className="h-3.5 w-3.5" /> 删除
+                </button>
+              )}
+              {currentUserId && currentUserId !== comment.author_id && (
+                <button className="flex items-center gap-1 hover:text-destructive transition-colors" onClick={() => onReport(comment)}>
+                  <Flag className="h-3.5 w-3.5" /> 举报
+                </button>
+              )}
+            </div>
+
+            {/* Replies */}
+            {replies.length > 0 && (
+              <div className="mt-4 space-y-0 pl-4 border-l-2 border-border/50">
+                {replies.map((r) => {
+                  const replyIsOwner = !!authorId && r.author_id === authorId
+                  return (
+                    <div key={r.id} className="flex gap-2.5 py-3">
+                      <UserAvatar profile={r.author} size="xs" className="shrink-0 mt-0.5" />
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-1.5 flex-wrap mb-1">
+                          <UserNameWithBadge profile={r.author} />
+                          {replyIsOwner && (
+                            <span style={ownerBadgeStyle}>{ownerLabel}</span>
+                          )}
+                          <span className="text-[10px] text-muted-foreground">{timeAgo(r.created_at)}</span>
+                        </div>
+                        <p className="text-sm text-foreground whitespace-pre-wrap break-words leading-[1.7] mt-0.5">
+                          {r.content}
+                        </p>
+                        <div className="mt-2 flex items-center justify-end gap-3 text-[11px] text-muted-foreground">
+                          <button className="hover:text-primary flex items-center gap-1" onClick={() => onReply(r)}>
+                            <Reply className="h-3 w-3" /> 回复
+                          </button>
+                          {canDelete(r) && (
+                            <button className="hover:text-destructive flex items-center gap-1" onClick={() => onDelete(r.id)}>
+                              <Trash2 className="h-3 w-3" /> 删除
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  )
+                })}
               </div>
-            ))}
+            )}
           </div>
-        )}
+        </div>
       </div>
-    </div>
+    </>
   )
 }

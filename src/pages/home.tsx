@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { supabase } from "@/lib/supabase"
 import type { Article, Topic, Announcement } from "@/lib/database.types"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
@@ -8,7 +8,7 @@ import { Card } from "@/components/ui/card"
 import { Megaphone, Sparkles } from "lucide-react"
 import { Link, useSearchParams } from "react-router-dom"
 import { timeAgo } from "@/lib/hijri"
-import { getCache, setCache } from "@/lib/page-cache"
+import { getCache, setCache, mergeCommentCounts } from "@/lib/page-cache"
 import { HomeHero } from "@/components/home-hero"
 import { fetchStaticHome, checkVersionChanged } from "@/lib/static-data"
 import { prefetchTopics } from "@/lib/topic-prefetch"
@@ -35,10 +35,24 @@ export function HomePage() {
   const [topics, setTopics] = useState<Topic[]>(cached?.topics ?? [])
   const [announcement, setAnnouncement] = useState<Announcement | null>(cached?.announcement ?? null)
   const [loaded, setLoaded] = useState(!!cached)
+  // Refs hold latest state so async refreshCommentCounts can read current IDs
+  const articlesRef = useRef(articles)
+  const topicsRef = useRef(topics)
+  articlesRef.current = articles
+  topicsRef.current = topics
 
   useEffect(() => {
     loadAll()
   }, [])
+
+  // After data is loaded (from any source), refresh real comment counts from comments table
+  const countRefreshedRef = useRef(false)
+  useEffect(() => {
+    if (loaded && !countRefreshedRef.current) {
+      countRefreshedRef.current = true
+      refreshCommentCounts()
+    }
+  }, [loaded])
 
   // Prefetch first 15 topic details when topics tab is visible
   useEffect(() => {
@@ -61,8 +75,8 @@ export function HomePage() {
     if (!cached) {
       const staticData = await fetchStaticHome<HomeCache & { generatedAt?: string }>()
       if (staticData && staticData.articles?.length > 0) {
-        setArticles(staticData.articles)
-        setTopics(staticData.topics ?? [])
+        setArticles(mergeCommentCounts(staticData.articles))
+        setTopics(mergeCommentCounts(staticData.topics ?? []))
         setAnnouncement(staticData.announcement ?? null)
         setLoaded(true)
         // Write to sessionStorage for subsequent navigation
@@ -116,8 +130,8 @@ export function HomePage() {
         .limit(1)
         .maybeSingle(),
     ])
-    const nextArticles = (arRes.data as Article[]) ?? []
-    const nextTopics = (tpRes.data as Topic[]) ?? []
+    const nextArticles = mergeCommentCounts((arRes.data as Article[]) ?? [])
+    const nextTopics = mergeCommentCounts((tpRes.data as Topic[]) ?? [])
     const nextAnnouncement = anRes.data ?? null
     setArticles(nextArticles)
     setTopics(nextTopics)
@@ -142,11 +156,10 @@ export function HomePage() {
   async function backgroundRevalidate() {
     const { changed, version } = await checkVersionChanged()
     if (changed) {
-      // Pass version as cache-busting param to bypass CDN/browser cache
       const freshData = await fetchStaticHome<HomeCache & { generatedAt?: string }>(version)
       if (freshData && freshData.articles?.length > 0) {
-        setArticles(freshData.articles)
-        setTopics(freshData.topics ?? [])
+        setArticles(mergeCommentCounts(freshData.articles))
+        setTopics(mergeCommentCounts(freshData.topics ?? []))
         setAnnouncement(freshData.announcement ?? null)
         setCache<HomeCache>(CACHE_KEY, {
           articles: freshData.articles,
@@ -155,6 +168,53 @@ export function HomePage() {
         })
       }
     }
+    // Always refresh real comment counts from DB after revalidation
+    refreshCommentCounts()
+  }
+
+  /**
+   * Lightweight background query: count real comments from the comments table
+   * for currently displayed articles and topics. This does NOT rely on
+   * topics.comment_count / articles.comment_count columns (which depend on
+   * triggers and may be stale). Instead, it queries the comments table directly.
+   */
+  async function refreshCommentCounts() {
+    const articleIds = articlesRef.current.map(a => a.id)
+    const topicIds = topicsRef.current.map(t => t.id)
+
+    if (articleIds.length === 0 && topicIds.length === 0) return
+
+    // Query all non-deleted comments for these IDs (just target_id column)
+    const allIds = [...articleIds, ...topicIds]
+    const { data: rows } = await supabase
+      .from("comments")
+      .select("target_id")
+      .in("target_id", allIds)
+      .eq("is_deleted", false)
+
+    if (!rows) return
+
+    // Count per target_id client-side
+    const countMap = new Map<string, number>()
+    for (const r of rows) {
+      countMap.set(r.target_id, (countMap.get(r.target_id) || 0) + 1)
+    }
+
+    // Update articles with real counts
+    setArticles(prev =>
+      mergeCommentCounts(prev.map(a => ({
+        ...a,
+        comment_count: countMap.get(a.id) ?? 0,
+      })))
+    )
+
+    // Update topics with real counts
+    setTopics(prev =>
+      mergeCommentCounts(prev.map(t => ({
+        ...t,
+        comment_count: countMap.get(t.id) ?? 0,
+      })))
+    )
   }
 
   return (

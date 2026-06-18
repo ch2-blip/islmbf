@@ -12,9 +12,11 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { Search, LogOut, User as UserIcon, Shield, Settings, SquarePen as PenSquare, FileText, MessageSquare, Bookmark, Heart } from "lucide-react"
+import { Search, LogOut, User as UserIcon, Shield, Settings, SquarePen as PenSquare, FileText, MessageSquare, Bookmark, Heart, Bell } from "lucide-react"
+import { supabase } from "@/lib/supabase"
 import { EightPointStar } from "./geometric-pattern"
 import { InstallPwaButton } from "./install-pwa-button"
+import { onReportsSeen, getReportsLastSeen } from "@/lib/admin-badge"
 
 const USER_MENU_STATE = { modal: 'user-menu' } as const
 
@@ -24,67 +26,80 @@ export function TopBar() {
   const nav = useNavigate()
   const location = useLocation()
 
-  // ---- Controlled user menu with mobile back-button support ----
   const [userMenuOpen, setUserMenuOpen] = useState(false)
-  // Tracks whether we pushed a history entry for this menu session
+  const [unreadCount, setUnreadCount] = useState(0)
+  const [newReports, setNewReports] = useState(0)
   const historyPushedRef = useRef(false)
-  // Tracks whether the close was triggered by popstate (back button)
+
+  // Fetch unread notification count
+  useEffect(() => {
+    if (!user) return
+    supabase
+      .from("notifications")
+      .select("id", { count: "exact", head: true })
+      .eq("user_id", user.id)
+      .eq("is_read", false)
+      .then(({ count }) => setUnreadCount(count ?? 0))
+  }, [user?.id, location.pathname])
+
+  // Fetch unseen reports for admins
+  useEffect(() => {
+    if (!user || !isAdmin) return
+    const lastSeen = getReportsLastSeen()
+    supabase
+      .from("reports")
+      .select("id", { count: "exact", head: true })
+      .gt("created_at", lastSeen)
+      .then(({ count }) => setNewReports(count ?? 0))
+  }, [user?.id, isAdmin, location.pathname])
+
+  // Register callback so admin page can clear badge instantly
+  useEffect(() => {
+    onReportsSeen(() => setNewReports(0))
+    return () => onReportsSeen(null)
+  }, [])
+
+  const totalBadge = unreadCount + (isAdmin ? newReports : 0)
+
   const closedByPopstateRef = useRef(false)
 
-  // Close menu on route change
   useEffect(() => {
-    if (userMenuOpen) {
-      setUserMenuOpen(false)
-    }
+    if (userMenuOpen) setUserMenuOpen(false)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [location.pathname])
 
-  // Listen for popstate (back button) while menu is open
   useEffect(() => {
     if (!userMenuOpen) return
-
     const handlePopstate = () => {
-      if (userMenuOpen) {
-        closedByPopstateRef.current = true
-        historyPushedRef.current = false
-        setUserMenuOpen(false)
-      }
+      closedByPopstateRef.current = true
+      historyPushedRef.current = false
+      setUserMenuOpen(false)
     }
-
     window.addEventListener('popstate', handlePopstate)
     return () => window.removeEventListener('popstate', handlePopstate)
   }, [userMenuOpen])
 
-  // Close menu on page scroll or touch-move (mobile)
   useEffect(() => {
     if (!userMenuOpen) return
-
     const handleScrollOrTouch = (e: Event) => {
-      // Don't close if scrolling within the dropdown menu content itself
       const target = e.target as HTMLElement
       if (target?.closest?.('[data-slot="dropdown-menu-content"]')) return
-      // Clean up history and close menu
       if (historyPushedRef.current) {
         historyPushedRef.current = false
         history.back()
       }
       setUserMenuOpen(false)
     }
-
-    // scroll doesn't bubble, use capture phase to catch all scroll events
     window.addEventListener('scroll', handleScrollOrTouch, { passive: true, capture: true })
     window.addEventListener('touchmove', handleScrollOrTouch, { passive: true })
-
     return () => {
       window.removeEventListener('scroll', handleScrollOrTouch, { capture: true })
       window.removeEventListener('touchmove', handleScrollOrTouch)
     }
   }, [userMenuOpen])
 
-  // Handle open/close from Radix (trigger click, click outside, Escape)
   const handleUserMenuOpenChange = useCallback((open: boolean) => {
     if (open) {
-      // Opening: push a history entry so back button can intercept
       if (!historyPushedRef.current) {
         history.pushState(USER_MENU_STATE, '')
         historyPushedRef.current = true
@@ -92,7 +107,6 @@ export function TopBar() {
       closedByPopstateRef.current = false
       setUserMenuOpen(true)
     } else {
-      // Closing via click-outside or Escape: pop our history entry
       if (historyPushedRef.current && !closedByPopstateRef.current) {
         historyPushedRef.current = false
         history.back()
@@ -102,9 +116,6 @@ export function TopBar() {
     }
   }, [])
 
-  // Navigate from a menu item click.
-  // Uses replace:true to overwrite our pushed history entry with the target route,
-  // so onOpenChange's history.back() won't undo the navigation.
   const handleMenuNavigate = useCallback((path: string) => {
     const shouldReplace = historyPushedRef.current
     historyPushedRef.current = false
@@ -113,7 +124,6 @@ export function TopBar() {
     nav(path, shouldReplace ? { replace: true } : undefined)
   }, [nav])
 
-  // Sign out from menu: same history cleanup pattern
   const handleMenuSignOut = useCallback(async () => {
     const shouldReplace = historyPushedRef.current
     historyPushedRef.current = false
@@ -152,46 +162,29 @@ export function TopBar() {
 
         <div className="flex items-center gap-1">
           <InstallPwaButton />
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => nav("/search")}
-            aria-label="搜索"
-          >
+          <Button variant="ghost" size="icon" onClick={() => nav("/search")} aria-label="搜索">
             <Search className="h-4 w-4" />
           </Button>
 
           {user ? (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="gap-1.5"
-                  aria-label="发布"
-                >
+                <Button variant="ghost" size="sm" className="gap-1.5" aria-label="发布">
                   <PenSquare className="h-4 w-4" />
                   <span className="hidden sm:inline text-sm">发布</span>
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-44">
                 <DropdownMenuItem onClick={() => nav("/create/article")}>
-                  <FileText className="mr-2 h-4 w-4" />
-                  写文章
+                  <FileText className="mr-2 h-4 w-4" /> 写文章
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => nav("/create/topic")}>
-                  <MessageSquare className="mr-2 h-4 w-4" />
-                  发话题
+                  <MessageSquare className="mr-2 h-4 w-4" /> 发话题
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
           ) : (
-            <Button
-              variant="ghost"
-              size="sm"
-              className="gap-1.5"
-              onClick={() => nav("/login")}
-            >
+            <Button variant="ghost" size="sm" className="gap-1.5" onClick={() => nav("/login")}>
               <PenSquare className="h-4 w-4" />
               <span className="hidden sm:inline text-sm">发布</span>
             </Button>
@@ -200,14 +193,23 @@ export function TopBar() {
           {user ? (
             <DropdownMenu open={userMenuOpen} onOpenChange={handleUserMenuOpenChange}>
               <DropdownMenuTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="gap-2 pr-2"
-                  aria-label="我的"
-                >
+                <Button variant="ghost" size="sm" className="gap-2 pr-2 relative" aria-label="我的">
                   <UserAvatar profile={profile} size="xs" />
                   <span className="hidden sm:inline text-sm">我的</span>
+                  {/* Simple static red dot — no animation, no glow, no ping */}
+                  {totalBadge > 0 && (
+                    <span
+                      style={{
+                        position: "absolute",
+                        top: 2,
+                        right: 2,
+                        width: 8,
+                        height: 8,
+                        borderRadius: "50%",
+                        backgroundColor: "#ef4444",
+                      }}
+                    />
+                  )}
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-56">
@@ -218,45 +220,77 @@ export function TopBar() {
                 </DropdownMenuLabel>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={() => handleMenuNavigate("/me")}>
-                  <UserIcon className="mr-2 h-4 w-4" />
-                  个人中心
+                  <UserIcon className="mr-2 h-4 w-4" /> 个人中心
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => handleMenuNavigate("/me/drafts")}>
-                  <FileText className="mr-2 h-4 w-4" />
-                  我的草稿
+                  <FileText className="mr-2 h-4 w-4" /> 我的草稿
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => handleMenuNavigate("/me/bookmarks")}>
-                  <Bookmark className="mr-2 h-4 w-4" />
-                  我的收藏
+                  <Bookmark className="mr-2 h-4 w-4" /> 我的收藏
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => handleMenuNavigate("/me/likes")}>
-                  <Heart className="mr-2 h-4 w-4" />
-                  我的点赞
+                  <Heart className="mr-2 h-4 w-4" /> 我的点赞
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => handleMenuNavigate("/notifications")}>
+                  <Bell className="mr-2 h-4 w-4" /> 消息通知
+                  {unreadCount > 0 && (
+                    <span
+                      style={{
+                        marginLeft: "auto",
+                        display: "inline-flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        height: 18,
+                        minWidth: 18,
+                        borderRadius: 9,
+                        padding: "0 5px",
+                        fontSize: 10,
+                        fontWeight: 600,
+                        backgroundColor: "#ef4444",
+                        color: "#fff",
+                      }}
+                    >
+                      {unreadCount > 99 ? "99+" : unreadCount}
+                    </span>
+                  )}
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={() => handleMenuNavigate("/settings")}>
-                  <Settings className="mr-2 h-4 w-4" />
-                  账号设置
+                  <Settings className="mr-2 h-4 w-4" /> 账号设置
                 </DropdownMenuItem>
                 {isAdmin && (
                   <DropdownMenuItem onClick={() => handleMenuNavigate("/admin")}>
-                    <Shield className="mr-2 h-4 w-4" />
-                    管理后台
+                    <Shield className="mr-2 h-4 w-4" /> 管理后台
+                    {newReports > 0 && (
+                      <span
+                        style={{
+                          marginLeft: "auto",
+                          display: "inline-flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          height: 18,
+                          minWidth: 18,
+                          borderRadius: 9,
+                          padding: "0 5px",
+                          fontSize: 10,
+                          fontWeight: 600,
+                          backgroundColor: "#ef4444",
+                          color: "#fff",
+                        }}
+                      >
+                        {newReports > 99 ? "99+" : newReports}
+                      </span>
+                    )}
                   </DropdownMenuItem>
                 )}
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={handleMenuSignOut}>
-                  <LogOut className="mr-2 h-4 w-4" />
-                  退出登录
+                  <LogOut className="mr-2 h-4 w-4" /> 退出登录
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
           ) : (
-            <Button
-              size="sm"
-              onClick={() => nav("/login")}
-              className="ml-1"
-            >
+            <Button size="sm" onClick={() => nav("/login")} className="ml-1">
               登录
             </Button>
           )}

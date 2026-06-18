@@ -23,10 +23,12 @@ import { timeAgo } from "@/lib/hijri"
 import { SiteSettingsPanel } from "./admin-site-panel"
 import { UsersPanelFull } from "./admin-users-panel"
 import { UserStatsPanel } from "./admin-user-stats"
+import { notifyReportsSeen } from "@/lib/admin-badge"
 
 export function AdminPage() {
   const { isAdmin, isModerator } = useAuth()
   const nav = useNavigate()
+  const [adminTab, setAdminTab] = useState("reports")
 
   useEffect(() => {
     if (!isModerator) {
@@ -34,6 +36,13 @@ export function AdminPage() {
       nav("/")
     }
   }, [isModerator, nav])
+
+  // Clear report badge when reports tab is active
+  useEffect(() => {
+    if (adminTab === "reports" && isModerator) {
+      notifyReportsSeen()
+    }
+  }, [adminTab, isModerator])
 
   if (!isModerator) return null
 
@@ -51,7 +60,7 @@ export function AdminPage() {
         <h1 className="text-xl font-serif-cn font-semibold">管理后台</h1>
       </div>
 
-      <Tabs defaultValue="reports">
+      <Tabs value={adminTab} onValueChange={setAdminTab}>
         <TabsList className="w-full grid grid-cols-4 sm:grid-cols-7 h-auto">
           <TabsTrigger value="reports" className="text-xs py-2">
             <Flag className="h-3.5 w-3.5 sm:mr-1" />

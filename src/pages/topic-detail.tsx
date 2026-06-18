@@ -9,11 +9,12 @@ import { CommentSection } from "@/components/comment-section"
 import { getCache, setCache } from "@/lib/page-cache"
 import { fetchStaticTopic } from "@/lib/static-data"
 import { getPrefetchedSnapshot } from "@/lib/topic-prefetch"
-import { Heart, Share2, ArrowLeft, Trash2, Pencil, Pin, Lock } from "lucide-react"
+import { Heart, Bookmark, Share2, ArrowLeft, Trash2, Pencil, Pin, Lock, Flag } from "lucide-react"
 import { timeAgo } from "@/lib/hijri"
 import { useAuth } from "@/contexts/auth-context"
 import { toast } from "sonner"
 import { Card } from "@/components/ui/card"
+import { ReportDialog } from "@/components/report-dialog"
 
 /** Combined snapshot: topic + comments displayed together */
 type TopicSnapshot = {
@@ -36,6 +37,8 @@ export function TopicDetailPage() {
 
   /* ── Interaction state (non-blocking) ── */
   const [liked, setLiked] = useState(false)
+  const [bookmarked, setBookmarked] = useState(false)
+  const [reportOpen, setReportOpen] = useState(false)
 
   /* Prevent duplicate RPC calls */
   const viewCounted = useRef(false)
@@ -153,23 +156,49 @@ export function TopicDetailPage() {
   /** Called by CommentSection after it refreshes or after user posts/deletes */
   function handleCommentsChange(comments: Comment[]) {
     setCachedComments(comments)
-    // Update combined cache
+    // Update combined cache + comment_count
     if (topic && id) {
-      setCache<TopicSnapshot>(`topic-snap:${id}`, { topic, comments }, (topic as any).updated_at)
+      const newCount = comments.length
+      if (newCount !== topic.comment_count) {
+        const updated = { ...topic, comment_count: newCount }
+        setTopic(updated)
+        // Update home cache
+        const homeCache = getCache<{ articles: any[], topics: any[], announcement: any }>("home")
+        if (homeCache?.topics) {
+          homeCache.topics = homeCache.topics.map((t: any) =>
+            t.id === id ? { ...t, comment_count: newCount } : t
+          )
+          setCache("home", homeCache)
+        }
+        setCache<TopicSnapshot>(`topic-snap:${id}`, { topic: updated, comments }, (updated as any).updated_at)
+      } else {
+        setCache<TopicSnapshot>(`topic-snap:${id}`, { topic, comments }, (topic as any).updated_at)
+      }
     }
   }
 
   async function loadInteractions(topicId: string) {
     if (!user) return
-    const { data: likeData } = await supabase
-      .from("reactions")
-      .select("id")
-      .eq("user_id", user.id)
-      .eq("target_type", "topic")
-      .eq("target_id", topicId)
-      .eq("reaction_type", "like")
-      .maybeSingle()
+    const [{ data: likeData }, { data: bmData }] = await Promise.all([
+      supabase
+        .from("reactions")
+        .select("id")
+        .eq("user_id", user.id)
+        .eq("target_type", "topic")
+        .eq("target_id", topicId)
+        .eq("reaction_type", "like")
+        .maybeSingle(),
+      supabase
+        .from("reactions")
+        .select("id")
+        .eq("user_id", user.id)
+        .eq("target_type", "topic")
+        .eq("target_id", topicId)
+        .eq("reaction_type", "bookmark")
+        .maybeSingle(),
+    ])
     setLiked(!!likeData)
+    setBookmarked(!!bmData)
   }
 
   async function toggleLike() {
@@ -204,6 +233,32 @@ export function TopicDetailPage() {
         .update({ like_count: topic.like_count + 1 })
         .eq("id", topic.id)
       setTopic({ ...topic, like_count: topic.like_count + 1 })
+    }
+  }
+
+  async function toggleBookmark() {
+    if (!user || !topic) {
+      toast.error("请先登录")
+      return
+    }
+    if (bookmarked) {
+      await supabase
+        .from("reactions")
+        .delete()
+        .eq("user_id", user.id)
+        .eq("target_type", "topic")
+        .eq("target_id", topic.id)
+        .eq("reaction_type", "bookmark")
+      setBookmarked(false)
+    } else {
+      await supabase.from("reactions").insert({
+        user_id: user.id,
+        target_type: "topic",
+        target_id: topic.id,
+        reaction_type: "bookmark",
+      })
+      setBookmarked(true)
+      toast.success("已收藏")
     }
   }
 
@@ -301,7 +356,24 @@ export function TopicDetailPage() {
             <Share2 className="h-4 w-4" />
             分享
           </Button>
+          <Button variant={bookmarked ? "default" : "outline"} size="sm" onClick={toggleBookmark} className="gap-1.5">
+            <Bookmark className={`h-4 w-4 ${bookmarked ? "fill-current" : ""}`} />
+            {bookmarked ? "已收藏" : "收藏"}
+          </Button>
+          {user && user.id !== topic.author_id && (
+            <Button variant="ghost" size="sm" onClick={() => setReportOpen(true)} className="gap-1.5 text-muted-foreground">
+              <Flag className="h-4 w-4" />
+              举报
+            </Button>
+          )}
         </div>
+
+        <ReportDialog
+          open={reportOpen}
+          onOpenChange={setReportOpen}
+          targetType="topic"
+          targetId={topic.id}
+        />
       </Card>
 
       {/* Comments: rendered immediately with cached data — no 300ms delay */}
@@ -309,6 +381,7 @@ export function TopicDetailPage() {
         <CommentSection
           targetType="topic"
           targetId={topic.id}
+          authorId={topic.author_id}
           initialComments={cachedComments}
           onCommentsChange={handleCommentsChange}
         />

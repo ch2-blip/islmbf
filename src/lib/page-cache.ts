@@ -145,3 +145,28 @@ export function clearCache(prefix?: string): void {
     toRemove.forEach(k => sessionStorage.removeItem(k))
   } catch { /* ignore */ }
 }
+
+/* ── Local comment-count overrides ──
+ * When a user posts/deletes a comment, we record the true count here.
+ * mergeCommentCounts() applies these overrides on top of fresh server data
+ * so that stale Supabase/static-data don't revert visible numbers.
+ * Overrides expire after 10 minutes (server should have caught up by then).
+ */
+const commentOverrides = new Map<string, { count: number; ts: number }>()
+const OVERRIDE_TTL = 10 * 60 * 1000
+
+export function setCommentCountOverride(targetId: string, count: number) {
+  commentOverrides.set(targetId, { count, ts: Date.now() })
+}
+
+export function mergeCommentCounts<T extends { id: string; comment_count: number }>(items: T[]): T[] {
+  if (commentOverrides.size === 0) return items
+  const now = Date.now()
+  return items.map(item => {
+    const ov = commentOverrides.get(item.id)
+    if (ov && now - ov.ts < OVERRIDE_TTL) {
+      return { ...item, comment_count: ov.count }
+    }
+    return item
+  })
+}

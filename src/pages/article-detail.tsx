@@ -9,12 +9,13 @@ import { Card } from "@/components/ui/card"
 import { CommentSection } from "@/components/comment-section"
 import { getCache, setCache } from "@/lib/page-cache"
 import { fetchStaticArticle } from "@/lib/static-data"
-import { Heart, Bookmark, Share2, ArrowLeft, Trash2, Pencil } from "lucide-react"
+import { Heart, Bookmark, Share2, ArrowLeft, Trash2, Pencil, Flag } from "lucide-react"
 import { timeAgo } from "@/lib/hijri"
 import { useAuth } from "@/contexts/auth-context"
 import { toast } from "sonner"
 import { ArabesqueDivider } from "@/components/geometric-pattern"
 import { detailThumb } from "@/lib/image-proxy"
+import { ReportDialog } from "@/components/report-dialog"
 
 export function ArticleDetailPage() {
   const { id } = useParams<{ id: string }>()
@@ -30,6 +31,7 @@ export function ArticleDetailPage() {
   /* ── Interaction state (non-blocking) ── */
   const [liked, setLiked] = useState(false)
   const [bookmarked, setBookmarked] = useState(false)
+  const [reportOpen, setReportOpen] = useState(false)
 
   /* ── Deferred comment mount ── */
   const [showComments, setShowComments] = useState(false)
@@ -345,13 +347,46 @@ export function ArticleDetailPage() {
           <Share2 className="h-4 w-4" />
           分享
         </Button>
+        {user && user.id !== article.author_id && (
+          <Button variant="ghost" size="sm" onClick={() => setReportOpen(true)} className="gap-1.5 text-muted-foreground">
+            <Flag className="h-4 w-4" />
+            举报
+          </Button>
+        )}
       </div>
       </Card>
+
+      <ReportDialog
+        open={reportOpen}
+        onOpenChange={setReportOpen}
+        targetType="article"
+        targetId={article.id}
+      />
 
       {/* Comments: deferred mount — does NOT block article content */}
       {showComments && (
         <Card className="p-5 sm:p-6 shadow-sm">
-          <CommentSection targetType="article" targetId={article.id} />
+          <CommentSection
+            targetType="article"
+            targetId={article.id}
+            authorId={article.author_id}
+            onCommentsChange={(cmts) => {
+              const newCount = cmts.length
+              if (newCount !== article.comment_count) {
+                const updated = { ...article, comment_count: newCount }
+                setArticle(updated)
+                setCache<Article>(`article:${article.id}`, updated, article.updated_at)
+                // Also update home cache
+                const homeCache = getCache<{ articles: Article[], topics: any[], announcement: any }>("home")
+                if (homeCache?.articles) {
+                  homeCache.articles = homeCache.articles.map(a =>
+                    a.id === article.id ? { ...a, comment_count: newCount } : a
+                  )
+                  setCache("home", homeCache)
+                }
+              }
+            }}
+          />
         </Card>
       )}
     </article>
