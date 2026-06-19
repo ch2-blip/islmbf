@@ -388,7 +388,10 @@ function CommentItem({
 
             {/* Comment content */}
             <div className="mb-3">
-              <p className="text-[15px] text-foreground whitespace-pre-wrap break-words leading-[1.8]">
+              <p
+                className="text-[15px] whitespace-pre-wrap break-words leading-[1.85]"
+                style={{ fontFamily: "var(--font-reading)", color: "#333" }}
+              >
                 {comment.content}
               </p>
             </div>

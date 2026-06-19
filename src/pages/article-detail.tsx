@@ -318,7 +318,7 @@ export function ArticleDetailPage() {
         </p>
       )}
 
-      <div className="prose prose-sm sm:prose-base max-w-none font-serif-cn text-foreground leading-loose whitespace-pre-wrap">
+      <div className="reading-body max-w-none whitespace-pre-wrap">
         {article.content}
       </div>
 

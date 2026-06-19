@@ -42,6 +42,7 @@
   --color-sidebar-ring: var(--sidebar-ring);
   --font-serif: "Noto Serif SC", "Source Han Serif", "Songti SC", serif;
   --font-arabic: "Amiri", "Noto Naskh Arabic", serif;
+  --font-reading: -apple-system, BlinkMacSystemFont, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei UI", "Microsoft YaHei", "Noto Sans CJK SC", "Source Han Sans SC", system-ui, sans-serif;
 }
 
 /* Legacy-friendly base palette (hex / rgb). Old Android browsers (QQ/UC/Baidu)
@@ -242,6 +243,56 @@
   .scrollbar-hide {
     -ms-overflow-style: none;
     scrollbar-width: none;
+  }
+
+  /* Long-form reading body — WeChat-like soft typography */
+  .reading-body {
+    font-family: var(--font-reading);
+    font-size: 17px;
+    line-height: 1.95;
+    font-weight: 400;
+    color: #2f2f2f;
+    letter-spacing: 0.015em;
+    word-break: break-word;
+    overflow-wrap: break-word;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+  .reading-body p,
+  .reading-body > br + br {
+    margin-bottom: 1.2em;
+  }
+  .reading-body h1,
+  .reading-body h2,
+  .reading-body h3 {
+    font-weight: 600;
+    margin-top: 1.6em;
+    margin-bottom: 0.6em;
+    line-height: 1.4;
+  }
+  .reading-body blockquote {
+    border-left: 3px solid var(--accent);
+    padding-left: 1em;
+    color: #555;
+    font-style: italic;
+    margin: 1.2em 0;
+  }
+  .reading-body img {
+    max-width: 100%;
+    border-radius: 6px;
+    margin: 1em 0;
+  }
+  .reading-body a {
+    color: var(--primary);
+    text-decoration: underline;
+    text-underline-offset: 2px;
+  }
+  /* Dark mode: softer white instead of pure white */
+  .dark .reading-body {
+    color: #d4d4d4;
+  }
+  .dark .reading-body blockquote {
+    color: #999;
   }
 }
 
