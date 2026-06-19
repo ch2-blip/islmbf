@@ -8,7 +8,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { timeAgo } from "@/lib/hijri"
 import { toast } from "sonner"
 import { Reply, Trash2, Flag, ThumbsUp } from "lucide-react"
-import { useNavigate } from "react-router-dom"
+import { useNavigate, Link } from "react-router-dom"
 import {
   Dialog,
   DialogContent,
@@ -355,11 +355,23 @@ function CommentItem({
       {showDivider && <div className="border-t border-border/50" />}
       <div className="py-5">
         <div className="flex gap-3">
-          <UserAvatar profile={comment.author} size="sm" className="shrink-0 mt-0.5" />
+          {comment.author?.username ? (
+            <Link to={`/user/${comment.author.username}`} className="shrink-0 mt-0.5">
+              <UserAvatar profile={comment.author} size="sm" />
+            </Link>
+          ) : (
+            <UserAvatar profile={comment.author} size="sm" className="shrink-0 mt-0.5" />
+          )}
           <div className="flex-1 min-w-0">
             {/* Author info */}
             <div className="flex items-center gap-2 flex-wrap mb-2">
-              <UserNameWithBadge profile={comment.author} />
+              {comment.author?.username ? (
+                <Link to={`/user/${comment.author.username}`} className="hover:underline">
+                  <UserNameWithBadge profile={comment.author} />
+                </Link>
+              ) : (
+                <UserNameWithBadge profile={comment.author} />
+              )}
               {isOwner && (
                 <span style={ownerBadgeStyle}>{ownerLabel}</span>
               )}
@@ -412,10 +424,22 @@ function CommentItem({
                   const replyIsOwner = !!authorId && r.author_id === authorId
                   return (
                     <div key={r.id} className="flex gap-2.5 py-3">
-                      <UserAvatar profile={r.author} size="xs" className="shrink-0 mt-0.5" />
+                      {r.author?.username ? (
+                        <Link to={`/user/${r.author.username}`} className="shrink-0 mt-0.5">
+                          <UserAvatar profile={r.author} size="xs" />
+                        </Link>
+                      ) : (
+                        <UserAvatar profile={r.author} size="xs" className="shrink-0 mt-0.5" />
+                      )}
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-1.5 flex-wrap mb-1">
-                          <UserNameWithBadge profile={r.author} />
+                          {r.author?.username ? (
+                            <Link to={`/user/${r.author.username}`} className="hover:underline">
+                              <UserNameWithBadge profile={r.author} />
+                            </Link>
+                          ) : (
+                            <UserNameWithBadge profile={r.author} />
+                          )}
                           {replyIsOwner && (
                             <span style={ownerBadgeStyle}>{ownerLabel}</span>
                           )}
