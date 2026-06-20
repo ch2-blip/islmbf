@@ -353,8 +353,8 @@ function CommentItem({
   return (
     <>
       {showDivider && <div className="border-t border-border/50" />}
-      <div className="py-5">
-        <div className="flex gap-3">
+      <div className="py-6">
+        <div className="flex gap-3.5">
           {comment.author?.username ? (
             <Link to={`/user/${comment.author.username}`} className="shrink-0 mt-0.5">
               <UserAvatar profile={comment.author} size="sm" />
@@ -364,7 +364,7 @@ function CommentItem({
           )}
           <div className="flex-1 min-w-0">
             {/* Author info */}
-            <div className="flex items-center gap-2 flex-wrap mb-2">
+            <div className="flex items-center gap-2 flex-wrap mb-3">
               {comment.author?.username ? (
                 <Link to={`/user/${comment.author.username}`} className="hover:underline">
                   <UserNameWithBadge profile={comment.author} />
@@ -386,8 +386,8 @@ function CommentItem({
               <span className="text-xs text-muted-foreground">{timeAgo(comment.created_at)}</span>
             </div>
 
-            {/* Comment content */}
-            <div className="mb-3">
+            {/* Comment content — main reading area */}
+            <div className="mb-5">
               <p
                 className="text-[15px] whitespace-pre-wrap break-words leading-[1.85]"
                 style={{ fontFamily: "var(--font-reading)", color: "#333" }}
@@ -396,25 +396,26 @@ function CommentItem({
               </p>
             </div>
 
-            {/* Action buttons — right-aligned */}
-            <div className="flex items-center justify-end gap-5 text-xs text-muted-foreground">
+            {/* Action buttons — light, small, right-aligned, separated from content */}
+            <div className="flex items-center justify-end gap-4 text-[11px]" style={{ color: "rgba(0,0,0,0.38)" }}>
               <button
-                className={`flex items-center gap-1 hover:text-primary transition-colors ${isLiked ? "text-primary" : ""}`}
+                className={`flex items-center gap-1 transition-colors ${isLiked ? "text-primary" : "hover:text-primary"}`}
+                style={isLiked ? {} : { color: "inherit" }}
                 onClick={() => onToggleLike(comment.id)}
               >
                 <ThumbsUp className={`h-3.5 w-3.5 ${isLiked ? "fill-current" : ""}`} />
                 {(comment.like_count || 0) > 0 ? comment.like_count : "点赞"}
               </button>
-              <button className="flex items-center gap-1 hover:text-primary transition-colors" onClick={() => onReply(comment)}>
+              <button className="flex items-center gap-1 hover:text-primary transition-colors" style={{ color: "inherit" }} onClick={() => onReply(comment)}>
                 <Reply className="h-3.5 w-3.5" /> 回复
               </button>
               {canDelete(comment) && (
-                <button className="flex items-center gap-1 hover:text-destructive transition-colors" onClick={() => onDelete(comment.id)}>
+                <button className="flex items-center gap-1 hover:text-destructive transition-colors" style={{ color: "inherit" }} onClick={() => onDelete(comment.id)}>
                   <Trash2 className="h-3.5 w-3.5" /> 删除
                 </button>
               )}
               {currentUserId && currentUserId !== comment.author_id && (
-                <button className="flex items-center gap-1 hover:text-destructive transition-colors" onClick={() => onReport(comment)}>
+                <button className="flex items-center gap-1 hover:text-destructive transition-colors" style={{ color: "inherit" }} onClick={() => onReport(comment)}>
                   <Flag className="h-3.5 w-3.5" /> 举报
                 </button>
               )}
@@ -422,11 +423,11 @@ function CommentItem({
 
             {/* Replies */}
             {replies.length > 0 && (
-              <div className="mt-4 space-y-0 pl-4 border-l-2 border-border/50">
+              <div className="mt-5 space-y-0 pl-4 border-l-2 border-border/50">
                 {replies.map((r) => {
                   const replyIsOwner = !!authorId && r.author_id === authorId
                   return (
-                    <div key={r.id} className="flex gap-2.5 py-3">
+                    <div key={r.id} className="flex gap-2.5 py-3.5">
                       {r.author?.username ? (
                         <Link to={`/user/${r.author.username}`} className="shrink-0 mt-0.5">
                           <UserAvatar profile={r.author} size="xs" />
@@ -435,7 +436,7 @@ function CommentItem({
                         <UserAvatar profile={r.author} size="xs" className="shrink-0 mt-0.5" />
                       )}
                       <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-1.5 flex-wrap mb-1">
+                        <div className="flex items-center gap-1.5 flex-wrap mb-1.5">
                           {r.author?.username ? (
                             <Link to={`/user/${r.author.username}`} className="hover:underline">
                               <UserNameWithBadge profile={r.author} />
@@ -448,15 +449,18 @@ function CommentItem({
                           )}
                           <span className="text-[10px] text-muted-foreground">{timeAgo(r.created_at)}</span>
                         </div>
-                        <p className="text-sm text-foreground whitespace-pre-wrap break-words leading-[1.7] mt-0.5">
+                        <p
+                          className="text-sm whitespace-pre-wrap break-words leading-[1.75] mt-0.5"
+                          style={{ fontFamily: "var(--font-reading)", color: "#444" }}
+                        >
                           {r.content}
                         </p>
-                        <div className="mt-2 flex items-center justify-end gap-3 text-[11px] text-muted-foreground">
-                          <button className="hover:text-primary flex items-center gap-1" onClick={() => onReply(r)}>
+                        <div className="mt-2.5 flex items-center justify-end gap-3 text-[11px]" style={{ color: "rgba(0,0,0,0.35)" }}>
+                          <button className="hover:text-primary flex items-center gap-1" style={{ color: "inherit" }} onClick={() => onReply(r)}>
                             <Reply className="h-3 w-3" /> 回复
                           </button>
                           {canDelete(r) && (
-                            <button className="hover:text-destructive flex items-center gap-1" onClick={() => onDelete(r.id)}>
+                            <button className="hover:text-destructive flex items-center gap-1" style={{ color: "inherit" }} onClick={() => onDelete(r.id)}>
                               <Trash2 className="h-3 w-3" /> 删除
                             </button>
                           )}

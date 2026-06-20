@@ -221,10 +221,14 @@ export function CreateArticlePage() {
     setSubmitting(true)
 
     const status = isAdmin ? "published" : "pending"
+    // Only set published_at when FIRST publishing (new or draft→published).
+    // Editing an already-published article must NOT change published_at,
+    // otherwise it jumps to the top of the list like a new article.
+    const isFirstPublish = !isEdit || existingStatus !== "published"
     const payload = {
       ...basePayload(),
       status,
-      ...(status === "published" ? { published_at: new Date().toISOString() } : {}),
+      ...(status === "published" && isFirstPublish ? { published_at: new Date().toISOString() } : {}),
     }
 
     if (isEdit && id) {
@@ -234,7 +238,7 @@ export function CreateArticlePage() {
         toast.error("保存失败：" + error.message)
         return
       }
-      toast.success(isAdmin ? "已发布" : "已提交，等待审核")
+      toast.success(isAdmin ? "修改已保存" : "已提交，等待审核")
       nav(isAdmin ? `/article/${id}` : "/me")
     } else {
       const { data, error } = await supabase

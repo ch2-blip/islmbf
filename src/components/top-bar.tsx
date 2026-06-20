@@ -194,7 +194,7 @@ export function TopBar() {
             <DropdownMenu open={userMenuOpen} onOpenChange={handleUserMenuOpenChange}>
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" size="sm" className="gap-2 pr-2 relative" aria-label="我的">
-                  <UserAvatar profile={profile} size="xs" />
+                  <UserAvatar profile={profile} size="xs" className="!h-8 !w-8" />
                   <span className="hidden sm:inline text-sm">我的</span>
                   {/* Simple static red dot — no animation, no glow, no ping */}
                   {totalBadge > 0 && (
