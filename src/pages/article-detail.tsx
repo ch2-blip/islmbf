@@ -22,46 +22,90 @@ export function ArticleDetailPage() {
   const nav = useNavigate()
   const { user, isModerator } = useAuth()
 
-  /* ── 1. Instant cache hit: show content immediately ── */
-  const cacheKey = id ? `article:${id}` : ""
-  const cached = cacheKey ? getCache<Article>(cacheKey) : undefined
-  const [article, setArticle] = useState<Article | null>(cached ?? null)
-  const [loaded, setLoaded] = useState(!!cached)
-
-  /* ── Interaction state (non-blocking) ── */
+  /* ── State ── */
+  const [article, _setArticle] = useState<Article | null>(null)
+  const [loaded, setLoaded] = useState(false)
   const [liked, setLiked] = useState(false)
   const [bookmarked, setBookmarked] = useState(false)
   const [reportOpen, setReportOpen] = useState(false)
-
-  /* ── Deferred comment mount ── */
   const [showComments, setShowComments] = useState(false)
+  const [contentSource, setContentSource] = useState("")
 
-  /* Prevent duplicate RPC calls */
+  /* Refs */
   const viewCounted = useRef(false)
+  const currentIdRef = useRef<string | null>(null)
+  const contentRef = useRef<string>("")   // last known good content
 
   const navType = useNavigationType()
 
+  /**
+   * SAFE setArticle — the core protection against empty-content overwrites.
+   *
+   * Rules:
+   * 1. If newArticle has content → accept it, update contentRef
+   * 2. If newArticle has NO content but contentRef has content for SAME article
+   *    → patch content from contentRef before setting state (preserve body)
+   * 3. Never allow a content-bearing article to be replaced by content-empty data
+   */
+  function safeSetArticle(newArticle: Article | null, source: string) {
+    if (!newArticle) {
+      console.warn(`[article] safeSetArticle(null) from ${source}`)
+      _setArticle(null)
+      return
+    }
+
+    const newContent = newArticle.content
+    const hasContent = typeof newContent === "string" && newContent.trim().length > 0
+
+    if (hasContent) {
+      contentRef.current = newContent
+      setContentSource(source)
+      console.warn(`[article] ✅ setArticle from ${source} id=${newArticle.id} contentLen=${newContent.length}`)
+      _setArticle(newArticle)
+    } else {
+      // New data lacks content — try to preserve existing content
+      if (contentRef.current && currentIdRef.current === newArticle.id) {
+        console.warn(`[article] ⚠️ REJECTED empty content from ${source} id=${newArticle.id}, preserving existing content (len=${contentRef.current.length})`)
+        _setArticle({ ...newArticle, content: contentRef.current })
+      } else {
+        console.warn(`[article] ⚠️ ${source} has no content, no previous content to preserve id=${newArticle.id}`)
+        _setArticle(newArticle)
+        setContentSource(source + " (no-content)")
+      }
+    }
+  }
+
   useEffect(() => {
     if (!id) return
-    viewCounted.current = false
 
-    // Scroll to top only when navigating forward (PUSH), not on browser back (POP)
+    currentIdRef.current = id
+    viewCounted.current = false
+    contentRef.current = ""  // reset for new article
+
     if (navType !== "POP") window.scrollTo(0, 0)
 
-    // Try memory/sessionStorage cache for instant display
+    // Try cache — but ONLY accept if it has content
     const c = getCache<Article>(`article:${id}`)
     if (c) {
-      setArticle(c)
-      setLoaded(true)
+      const cContent = (c as any).content
+      const cHasContent = typeof cContent === "string" && cContent.trim().length > 0
+      console.warn(`[article] Cache hit for ${id} hasContent=${cHasContent} contentLen=${cContent?.length ?? 0}`)
+      if (cHasContent) {
+        safeSetArticle(c, "cache")
+        setLoaded(true)
+      } else {
+        // Cache exists but has no content — ignore it for display, still fetch
+        console.warn(`[article] Cache for ${id} has NO content — ignoring, will fetch fresh`)
+        _setArticle(null)
+        setLoaded(false)
+      }
     } else {
-      setArticle(null)
+      _setArticle(null)
       setLoaded(false)
     }
 
-    // Main content request — only thing that blocks rendering
     loadArticle(id)
 
-    // Defer comments mount by 300ms so article renders first
     setShowComments(false)
     const t = setTimeout(() => setShowComments(true), 300)
     return () => clearTimeout(t)
@@ -77,23 +121,44 @@ export function ArticleDetailPage() {
   /**
    * Primary fetch — tries static JSON first, then Supabase.
    * Static JSON gives instant display for first-time visitors.
+   *
+   * IMPORTANT: After every await, we check currentIdRef to ensure the user
+   * hasn't navigated to a different article while we were waiting.
    */
   async function loadArticle(articleId: string) {
-    // Try static JSON if no sessionStorage cache
-    const hadCache = !!getCache<Article>(`article:${articleId}`)
-    if (!hadCache) {
+    // Check cache content status (cache may have been populated without content)
+    const cachedArticle = getCache<Article>(`article:${articleId}`)
+    const cacheHasContent = cachedArticle && typeof cachedArticle.content === "string" && cachedArticle.content.trim().length > 0
+    console.warn(`[article] loadArticle ${articleId} cacheHasContent=${cacheHasContent}`)
+
+    // Always try static JSON first if cache doesn't have content
+    if (!cacheHasContent) {
       const staticArticle = await fetchStaticArticle<Article>(articleId)
-      if (staticArticle) {
-        setArticle(staticArticle)
-        setLoaded(true)
-        setCache<Article>(`article:${articleId}`, staticArticle, staticArticle.updated_at)
-        // Still revalidate from Supabase in background
-        revalidateFromSupabase(articleId)
+
+      if (currentIdRef.current !== articleId) {
+        console.warn(`[article] Discarding stale static JSON for ${articleId}`)
         return
+      }
+
+      if (staticArticle) {
+        const content = (staticArticle as any).content as string | undefined
+        const hasContent = typeof content === "string" && content.trim().length > 0
+        console.warn(`[article] Static JSON hit ${articleId} hasContent=${hasContent} len=${content?.length ?? 0}`)
+
+        if (hasContent) {
+          safeSetArticle(staticArticle, "static-json")
+          setLoaded(true)
+          setCache<Article>(`article:${articleId}`, staticArticle, staticArticle.updated_at)
+          revalidateFromSupabase(articleId)
+          return
+        } else {
+          console.warn(`[article] Static JSON for ${articleId} has empty content, falling back to Supabase`)
+        }
+      } else {
+        console.warn(`[article] Static JSON miss for ${articleId}, falling back to Supabase`)
       }
     }
 
-    // Fallback: Supabase query
     await revalidateFromSupabase(articleId)
   }
 
@@ -105,34 +170,50 @@ export function ArticleDetailPage() {
       .eq("id", articleId)
       .maybeSingle()
 
-    if (data) {
-      setArticle(data as Article)
-      setLoaded(true)
-      setCache<Article>(`article:${articleId}`, data as Article, (data as any).updated_at)
+    if (currentIdRef.current !== articleId) {
+      console.warn(`[article] Discarding stale Supabase response for ${articleId}`)
+      return
+    }
 
-      // Fire-and-forget: increment views (NO await, does NOT block UI)
+    if (data) {
+      const contentLen = ((data as any).content as string | undefined)?.length ?? 0
+      console.warn(`[article] Supabase hit ${articleId} contentLen=${contentLen}`)
+
+      safeSetArticle(data as Article, "supabase")
+      setLoaded(true)
+      // Only cache if data has content
+      if (contentLen > 0) {
+        setCache<Article>(`article:${articleId}`, data as Article, (data as any).updated_at)
+      }
+
       if (!viewCounted.current) {
         viewCounted.current = true
         const newCount = (data.view_count ?? 0) + 1
         const withView = { ...data, view_count: newCount } as Article
-        setArticle(withView)
-        setCache<Article>(`article:${articleId}`, withView, (data as any).updated_at)
 
-        // Also update home cache view count
-        const homeCache = getCache<{ articles: Article[], topics: any[], announcement: any }>("home")
-        if (homeCache?.articles) {
-          homeCache.articles = homeCache.articles.map(a =>
-            a.id === articleId ? { ...a, view_count: newCount } : a
-          )
-          setCache("home", homeCache)
+        if (currentIdRef.current === articleId) {
+          safeSetArticle(withView, "supabase-view")
+          if (contentLen > 0) {
+            setCache<Article>(`article:${articleId}`, withView, (data as any).updated_at)
+          }
+
+          const homeCache = getCache<{ articles: Article[], topics: any[], announcement: any }>("home")
+          if (homeCache?.articles) {
+            homeCache.articles = homeCache.articles.map(a =>
+              a.id === articleId ? { ...a, view_count: newCount } : a
+            )
+            setCache("home", homeCache)
+          }
         }
 
-        // RPC — fire and forget
         supabase.rpc("increment_article_views", { article_id: articleId })
           .then(({ error }) => { if (error) console.error(error) })
       }
     } else {
-      setLoaded(true) // Mark loaded so we show "not found"
+      console.warn(`[article] Supabase returned null for ${articleId}`)
+      if (currentIdRef.current === articleId) {
+        setLoaded(true)
+      }
     }
   }
 
@@ -184,7 +265,7 @@ export function ArticleDetailPage() {
           .from("articles")
           .update({ like_count: Math.max(0, article.like_count - 1) })
           .eq("id", article.id)
-        setArticle({ ...article, like_count: Math.max(0, article.like_count - 1) })
+        safeSetArticle({ ...article, like_count: Math.max(0, article.like_count - 1) }, "like-remove")
       } else {
         setBookmarked(false)
       }
@@ -201,7 +282,7 @@ export function ArticleDetailPage() {
           .from("articles")
           .update({ like_count: article.like_count + 1 })
           .eq("id", article.id)
-        setArticle({ ...article, like_count: article.like_count + 1 })
+        safeSetArticle({ ...article, like_count: article.like_count + 1 }, "like-add")
       } else {
         setBookmarked(true)
         toast.success("已收藏")
@@ -319,8 +400,21 @@ export function ArticleDetailPage() {
       )}
 
       <div className="reading-body max-w-none whitespace-pre-wrap">
-        {article.content}
+        {article.content ? (
+          article.content
+        ) : (
+          <div className="text-center text-muted-foreground py-8">
+            <p>正文加载中…</p>
+            <button onClick={() => { contentRef.current = ""; loadArticle(article.id) }} className="mt-3 text-sm text-primary underline">点击重试</button>
+          </div>
+        )}
       </div>
+      {/* Debug info — only visible in development */}
+      {import.meta.env.DEV && (
+        <div className="text-[10px] text-muted-foreground/40 mt-1 text-right select-none">
+          content: {article.content?.length ?? 0} chars · source: {contentSource}
+        </div>
+      )}
 
       <ArabesqueDivider className="my-8" />
 
@@ -374,7 +468,7 @@ export function ArticleDetailPage() {
               const newCount = cmts.length
               if (newCount !== article.comment_count) {
                 const updated = { ...article, comment_count: newCount }
-                setArticle(updated)
+                safeSetArticle(updated, "comment-count")
                 setCache<Article>(`article:${article.id}`, updated, article.updated_at)
                 // Also update home cache
                 const homeCache = getCache<{ articles: Article[], topics: any[], announcement: any }>("home")

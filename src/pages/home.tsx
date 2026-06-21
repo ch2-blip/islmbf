@@ -85,10 +85,10 @@ export function HomePage() {
           topics: staticData.topics ?? [],
           announcement: staticData.announcement ?? null,
         })
-        // Pre-cache individual articles/topics for instant detail pages
-        for (const a of staticData.articles) {
-          setCache<Article>(`article:${a.id}`, a, (a as any).updated_at)
-        }
+        // NOTE: Do NOT pre-cache individual articles here!
+        // home.json articles lack the 'content' field — caching them as
+        // article:{id} would cause article-detail to show empty body.
+        // Topics in home.json DO include content, so those are safe to cache.
         for (const t of staticData.topics ?? []) {
           setCache<Topic>(`topic:${t.id}`, t, (t as any).updated_at)
         }
@@ -142,10 +142,10 @@ export function HomePage() {
       topics: nextTopics,
       announcement: nextAnnouncement,
     })
-    // Pre-cache individual articles for instant detail page display
-    for (const a of nextArticles) {
-      setCache<Article>(`article:${a.id}`, a, (a as any).updated_at)
-    }
+    // NOTE: Do NOT pre-cache individual articles from the home list query!
+    // The home Supabase query uses select('*') which includes content, but
+    // backgroundRevalidate() may later overwrite these caches with home.json
+    // data that LACKS content, causing article-detail to show empty body.
     // Pre-cache individual topics for instant detail page display
     for (const t of nextTopics) {
       setCache<Topic>(`topic:${t.id}`, t, (t as any).updated_at)
