@@ -12,6 +12,7 @@ import { getCache, setCache, mergeCommentCounts } from "@/lib/page-cache"
 import { HomeHero } from "@/components/home-hero"
 import { fetchStaticHome, checkVersionChanged } from "@/lib/static-data"
 import { prefetchTopics } from "@/lib/topic-prefetch"
+import { prefetchArticles } from "@/lib/article-prefetch"
 
 type HomeCache = {
   articles: Article[]
@@ -88,6 +89,8 @@ export function HomePage() {
         // NOTE: Do NOT pre-cache individual articles here!
         // home.json articles lack the 'content' field — caching them as
         // article:{id} would cause article-detail to show empty body.
+        // Instead, background-prefetch full article detail JSONs (with content)
+        prefetchArticles(staticData.articles.slice(0, 8).map(a => a.id))
         // Topics in home.json DO include content, so those are safe to cache.
         for (const t of staticData.topics ?? []) {
           setCache<Topic>(`topic:${t.id}`, t, (t as any).updated_at)
@@ -143,9 +146,8 @@ export function HomePage() {
       announcement: nextAnnouncement,
     })
     // NOTE: Do NOT pre-cache individual articles from the home list query!
-    // The home Supabase query uses select('*') which includes content, but
-    // backgroundRevalidate() may later overwrite these caches with home.json
-    // data that LACKS content, causing article-detail to show empty body.
+    // Instead, background-prefetch full article detail JSONs (with content)
+    prefetchArticles(nextArticles.slice(0, 8).map(a => a.id))
     // Pre-cache individual topics for instant detail page display
     for (const t of nextTopics) {
       setCache<Topic>(`topic:${t.id}`, t, (t as any).updated_at)

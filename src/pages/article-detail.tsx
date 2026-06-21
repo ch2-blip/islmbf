@@ -9,6 +9,7 @@ import { Card } from "@/components/ui/card"
 import { CommentSection } from "@/components/comment-section"
 import { getCache, setCache } from "@/lib/page-cache"
 import { fetchStaticArticle } from "@/lib/static-data"
+import { getPrefetchedArticle } from "@/lib/article-prefetch"
 import { Heart, Bookmark, Share2, ArrowLeft, Trash2, Pencil, Flag } from "lucide-react"
 import { timeAgo } from "@/lib/hijri"
 import { useAuth } from "@/contexts/auth-context"
@@ -49,7 +50,7 @@ export function ArticleDetailPage() {
    */
   function safeSetArticle(newArticle: Article | null, source: string) {
     if (!newArticle) {
-      console.warn(`[article] safeSetArticle(null) from ${source}`)
+      import.meta.env.DEV && console.warn(`[article] safeSetArticle(null) from ${source}`)
       _setArticle(null)
       return
     }
@@ -60,15 +61,15 @@ export function ArticleDetailPage() {
     if (hasContent) {
       contentRef.current = newContent
       setContentSource(source)
-      console.warn(`[article] ✅ setArticle from ${source} id=${newArticle.id} contentLen=${newContent.length}`)
+      import.meta.env.DEV && console.warn(`[article] ✅ setArticle from ${source} id=${newArticle.id} contentLen=${newContent.length}`)
       _setArticle(newArticle)
     } else {
       // New data lacks content — try to preserve existing content
       if (contentRef.current && currentIdRef.current === newArticle.id) {
-        console.warn(`[article] ⚠️ REJECTED empty content from ${source} id=${newArticle.id}, preserving existing content (len=${contentRef.current.length})`)
+        import.meta.env.DEV && console.warn(`[article] ⚠️ REJECTED empty content from ${source} id=${newArticle.id}, preserving existing content (len=${contentRef.current.length})`)
         _setArticle({ ...newArticle, content: contentRef.current })
       } else {
-        console.warn(`[article] ⚠️ ${source} has no content, no previous content to preserve id=${newArticle.id}`)
+        import.meta.env.DEV && console.warn(`[article] ⚠️ ${source} has no content, no previous content to preserve id=${newArticle.id}`)
         _setArticle(newArticle)
         setContentSource(source + " (no-content)")
       }
@@ -85,21 +86,20 @@ export function ArticleDetailPage() {
     if (navType !== "POP") window.scrollTo(0, 0)
 
     // Try cache — but ONLY accept if it has content
-    const c = getCache<Article>(`article:${id}`)
+    const c = getCache<Article>(`article:${id}`) ?? getPrefetchedArticle(id) ?? null
     if (c) {
       const cContent = (c as any).content
       const cHasContent = typeof cContent === "string" && cContent.trim().length > 0
-      console.warn(`[article] Cache hit for ${id} hasContent=${cHasContent} contentLen=${cContent?.length ?? 0}`)
       if (cHasContent) {
         safeSetArticle(c, "cache")
         setLoaded(true)
       } else {
-        // Cache exists but has no content — ignore it for display, still fetch
-        console.warn(`[article] Cache for ${id} has NO content — ignoring, will fetch fresh`)
-        _setArticle(null)
+        // Cache exists but has no content — don't use it, but don't flash white either
+        // Keep article as null → skeleton will show
         setLoaded(false)
       }
     } else {
+      // No cache at all → skeleton will show (NOT a blank white page)
       _setArticle(null)
       setLoaded(false)
     }
@@ -129,21 +129,21 @@ export function ArticleDetailPage() {
     // Check cache content status (cache may have been populated without content)
     const cachedArticle = getCache<Article>(`article:${articleId}`)
     const cacheHasContent = cachedArticle && typeof cachedArticle.content === "string" && cachedArticle.content.trim().length > 0
-    console.warn(`[article] loadArticle ${articleId} cacheHasContent=${cacheHasContent}`)
+    import.meta.env.DEV && console.warn(`[article] loadArticle ${articleId} cacheHasContent=${cacheHasContent}`)
 
     // Always try static JSON first if cache doesn't have content
     if (!cacheHasContent) {
       const staticArticle = await fetchStaticArticle<Article>(articleId)
 
       if (currentIdRef.current !== articleId) {
-        console.warn(`[article] Discarding stale static JSON for ${articleId}`)
+        import.meta.env.DEV && console.warn(`[article] Discarding stale static JSON for ${articleId}`)
         return
       }
 
       if (staticArticle) {
         const content = (staticArticle as any).content as string | undefined
         const hasContent = typeof content === "string" && content.trim().length > 0
-        console.warn(`[article] Static JSON hit ${articleId} hasContent=${hasContent} len=${content?.length ?? 0}`)
+        import.meta.env.DEV && console.warn(`[article] Static JSON hit ${articleId} hasContent=${hasContent} len=${content?.length ?? 0}`)
 
         if (hasContent) {
           safeSetArticle(staticArticle, "static-json")
@@ -152,10 +152,10 @@ export function ArticleDetailPage() {
           revalidateFromSupabase(articleId)
           return
         } else {
-          console.warn(`[article] Static JSON for ${articleId} has empty content, falling back to Supabase`)
+          import.meta.env.DEV && console.warn(`[article] Static JSON for ${articleId} has empty content, falling back to Supabase`)
         }
       } else {
-        console.warn(`[article] Static JSON miss for ${articleId}, falling back to Supabase`)
+        import.meta.env.DEV && console.warn(`[article] Static JSON miss for ${articleId}, falling back to Supabase`)
       }
     }
 
@@ -171,13 +171,13 @@ export function ArticleDetailPage() {
       .maybeSingle()
 
     if (currentIdRef.current !== articleId) {
-      console.warn(`[article] Discarding stale Supabase response for ${articleId}`)
+      import.meta.env.DEV && console.warn(`[article] Discarding stale Supabase response for ${articleId}`)
       return
     }
 
     if (data) {
       const contentLen = ((data as any).content as string | undefined)?.length ?? 0
-      console.warn(`[article] Supabase hit ${articleId} contentLen=${contentLen}`)
+      import.meta.env.DEV && console.warn(`[article] Supabase hit ${articleId} contentLen=${contentLen}`)
 
       safeSetArticle(data as Article, "supabase")
       setLoaded(true)
@@ -210,7 +210,7 @@ export function ArticleDetailPage() {
           .then(({ error }) => { if (error) console.error(error) })
       }
     } else {
-      console.warn(`[article] Supabase returned null for ${articleId}`)
+      import.meta.env.DEV && console.warn(`[article] Supabase returned null for ${articleId}`)
       if (currentIdRef.current === articleId) {
         setLoaded(true)
       }
@@ -313,7 +313,36 @@ export function ArticleDetailPage() {
   }
 
   if (!article) {
-    if (!loaded) return <div className="px-4 pt-4 min-h-[60vh]" />
+    if (!loaded) return (
+      <article className="px-4 pt-4 pb-8 space-y-4">
+        <div className="flex items-center gap-1 text-sm text-muted-foreground">
+          <ArrowLeft className="h-4 w-4" /> 返回
+        </div>
+        <Card className="p-5 sm:p-7 shadow-sm animate-pulse">
+          <div className="h-4 w-16 bg-muted rounded mb-4" />
+          <div className="h-7 w-4/5 bg-muted rounded mb-2" />
+          <div className="h-7 w-3/5 bg-muted rounded mb-5" />
+          <div className="flex items-center gap-2.5 pb-5 mb-5 border-b border-border/60">
+            <div className="h-10 w-10 bg-muted rounded-full shrink-0" />
+            <div className="space-y-1.5">
+              <div className="h-3.5 w-20 bg-muted rounded" />
+              <div className="h-3 w-28 bg-muted rounded" />
+            </div>
+          </div>
+          <div className="space-y-3 pt-2">
+            <div className="h-4 w-full bg-muted rounded" />
+            <div className="h-4 w-full bg-muted rounded" />
+            <div className="h-4 w-5/6 bg-muted rounded" />
+            <div className="h-4 w-full bg-muted rounded" />
+            <div className="h-4 w-4/5 bg-muted rounded" />
+            <div className="h-4 w-full bg-muted rounded" />
+            <div className="h-4 w-2/3 bg-muted rounded" />
+            <div className="h-4 w-full bg-muted rounded" />
+            <div className="h-4 w-3/4 bg-muted rounded" />
+          </div>
+        </Card>
+      </article>
+    )
     return (
       <div className="px-4 pt-12 text-center min-h-[60vh]">
         <p className="text-muted-foreground mb-4">文章不存在或已删除</p>
