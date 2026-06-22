@@ -18,7 +18,6 @@ export function SettingsPage() {
   const [username, setUsername] = useState("")
   const [bio, setBio] = useState("")
   const [avatarUrl, setAvatarUrl] = useState("")
-  const [phone, setPhone] = useState("")
   const [uploading, setUploading] = useState(false)
   const [saving, setSaving] = useState(false)
 
@@ -37,7 +36,6 @@ export function SettingsPage() {
       setUsername(profile.username)
       setBio(profile.bio)
       setAvatarUrl(profile.avatar_url)
-      setPhone(profile.phone ?? "")
     }
   }, [user, profile, nav])
 
@@ -67,11 +65,6 @@ export function SettingsPage() {
 
   async function save() {
     if (!user) return
-
-    if (phone && !/^\+?\d[\d\s-]{5,19}$/.test(phone.trim())) {
-      toast.error("手机号格式不正确")
-      return
-    }
 
     // Username validation — only admin is allowed to change username
     const trimmedUsername = username.trim()
@@ -107,7 +100,6 @@ export function SettingsPage() {
     const updatePayload: Record<string, unknown> = {
       bio,
       avatar_url: avatarUrl,
-      phone: phone.trim(),
     }
     // Only admin may update username
     if (isAdmin) {
@@ -233,16 +225,6 @@ export function SettingsPage() {
           )}
         </div>
 
-        <div className="space-y-2">
-          <Label htmlFor="phone">绑定手机号（可选）</Label>
-          <Input
-            id="phone"
-            value={phone}
-            onChange={(e) => setPhone(e.target.value)}
-            placeholder="如 +86 138 0000 0000"
-            inputMode="tel"
-          />
-        </div>
 
         <div className="space-y-2">
           <Label htmlFor="bio">个人简介</Label>

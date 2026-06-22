@@ -141,7 +141,7 @@ export function TopBar() {
       <div className="mx-auto flex max-w-3xl items-center justify-between gap-2 px-4 py-3">
         <Link to="/" className="flex items-center gap-2.5 group">
           <span
-            className="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-primary-foreground"
+            className="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-primary-foreground overflow-hidden"
             style={{
               ...(!siteIcon ? {
                 background: "linear-gradient(to bottom right, var(--primary), var(--accent))",
@@ -152,7 +152,7 @@ export function TopBar() {
             }}
           >
             {siteIcon ? (
-              <img src={siteIcon} alt={siteName} className="h-full w-full rounded-xl object-contain" />
+              <img src={siteIcon} alt={siteName} className="h-full w-full object-cover" />
             ) : (
               <EightPointStar size={22} />
             )}
@@ -162,15 +162,15 @@ export function TopBar() {
 
         <div className="flex items-center gap-1">
           <InstallPwaButton />
-          <Button variant="ghost" size="icon" onClick={() => nav("/search")} aria-label="搜索">
-            <Search className="h-4 w-4" />
+          <Button variant="ghost" size="icon" className="h-10 w-10" onClick={() => nav("/search")} aria-label="搜索">
+            <Search className="h-5 w-5" />
           </Button>
 
           {user ? (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="sm" className="gap-1.5" aria-label="发布">
-                  <PenSquare className="h-4 w-4" />
+                <Button variant="ghost" size="sm" className="gap-1.5 h-10 px-2.5" aria-label="发布">
+                  <PenSquare className="h-5 w-5" />
                   <span className="hidden sm:inline text-sm">发布</span>
                 </Button>
               </DropdownMenuTrigger>
