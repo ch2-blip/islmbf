@@ -12,7 +12,7 @@ import { ArrowLeft, Upload, KeyRound } from "lucide-react"
 import { UserAvatar } from "@/components/user-avatar"
 
 export function SettingsPage() {
-  const { user, profile, refreshProfile, changePassword, signOut } = useAuth()
+  const { user, profile, isAdmin, refreshProfile, changePassword, signOut } = useAuth()
   const nav = useNavigate()
   const fileRef = useRef<HTMLInputElement>(null)
   const [username, setUsername] = useState("")
@@ -67,14 +67,56 @@ export function SettingsPage() {
 
   async function save() {
     if (!user) return
+
     if (phone && !/^\+?\d[\d\s-]{5,19}$/.test(phone.trim())) {
       toast.error("手机号格式不正确")
       return
     }
+
+    // Username validation — only admin is allowed to change username
+    const trimmedUsername = username.trim()
+    if (isAdmin) {
+      if (!trimmedUsername) {
+        toast.error("用户名不能为空")
+        return
+      }
+      // Disallow obviously dangerous characters
+      if (/[<>"'\\;|`]/.test(trimmedUsername)) {
+        toast.error("用户名包含非法字符")
+        return
+      }
+      if (trimmedUsername.length > 32) {
+        toast.error("用户名不能超过 32 个字符")
+        return
+      }
+      // Check uniqueness (skip if unchanged)
+      if (trimmedUsername !== profile?.username) {
+        const { data: existing } = await supabase
+          .from("profiles")
+          .select("id")
+          .eq("username", trimmedUsername)
+          .maybeSingle()
+        if (existing) {
+          toast.error("用户名已被占用，请换一个")
+          return
+        }
+      }
+    }
+
     setSaving(true)
+    const updatePayload: Record<string, unknown> = {
+      bio,
+      avatar_url: avatarUrl,
+      phone: phone.trim(),
+    }
+    // Only admin may update username
+    if (isAdmin) {
+      updatePayload.username = trimmedUsername
+    }
+
     const { error } = await supabase
       .from("profiles")
-      .update({ username, bio, avatar_url: avatarUrl, phone: phone.trim() })
+      .update(updatePayload)
       .eq("id", user.id)
     setSaving(false)
     if (error) {
@@ -174,8 +216,21 @@ export function SettingsPage() {
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="username">昵称</Label>
-          <Input id="username" value={username} onChange={(e) => setUsername(e.target.value)} />
+          <Label htmlFor="username">用户名</Label>
+          <Input
+            id="username"
+            value={username}
+            onChange={(e) => setUsername(e.target.value)}
+            disabled={!isAdmin}
+            className={!isAdmin ? "opacity-60 cursor-not-allowed" : ""}
+            maxLength={32}
+          />
+          {!isAdmin && (
+            <p className="text-xs text-muted-foreground">普通用户暂不支持修改用户名</p>
+          )}
+          {isAdmin && (
+            <p className="text-xs text-muted-foreground">管理员可修改展示用户名（登录别名）</p>
+          )}
         </div>
 
         <div className="space-y-2">

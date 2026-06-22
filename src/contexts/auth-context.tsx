@@ -66,11 +66,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   async function signIn(username: string, password: string) {
+    const trimmed = username.trim()
+    if (!trimmed) return { error: "用户名或密码错误" }
+
+    // Step 1: resolve the real auth email via RPC (username may have changed since registration)
+    const { data: resolvedEmail, error: rpcErr } = await supabase.rpc("resolve_login_email", {
+      p_username: trimmed,
+    })
+    if (rpcErr || !resolvedEmail) {
+      // Do not reveal whether username exists or not
+      return { error: "用户名或密码错误" }
+    }
+
+    // Step 2: sign in with the resolved internal email
     const { error } = await supabase.auth.signInWithPassword({
-      email: usernameToEmail(username),
+      email: resolvedEmail as string,
       password,
     })
-    return { error: error?.message ?? null }
+    // Unified error message — never expose the internal email
+    return { error: error ? "用户名或密码错误" : null }
   }
 
   async function signUp(username: string, password: string) {
@@ -107,14 +121,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   async function changePassword(currentPassword: string, newPassword: string) {
-    if (!profile?.username) return { error: "用户未登录" }
-    // Verify current password by attempting sign-in
-    const email = usernameToEmail(profile.username)
+    // Use the real auth email from the current session — never derive from profile.username
+    // This works correctly even if the user has changed their username since registration
+    const email = session?.user?.email
+    if (!email) return { error: "用户未登录" }
+
+    // Verify current password by re-authenticating with the session's real email
     const { error: verifyErr } = await supabase.auth.signInWithPassword({
       email,
       password: currentPassword,
     })
     if (verifyErr) return { error: "当前密码不正确" }
+
     // Update to new password
     const { error: updateErr } = await supabase.auth.updateUser({
       password: newPassword,
