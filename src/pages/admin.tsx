@@ -170,13 +170,18 @@ function ReportsPanel() {
 function ContentPanel() {
   const [articles, setArticles] = useState<Article[]>([])
   const [topics, setTopics] = useState<Topic[]>([])
+  // Local edits for sort_order before saving — key: article id
+  const [sortEdits, setSortEdits] = useState<Record<string, string>>({})
+  const [savingSort, setSavingSort] = useState<Record<string, boolean>>({})
 
   async function load() {
     const [a, t] = await Promise.all([
       supabase
         .from("articles")
         .select("*, author:profiles!articles_author_id_fkey(*)")
-        .order("created_at", { ascending: false })
+        .order("is_pinned", { ascending: false })
+        .order("sort_order", { ascending: false })
+        .order("published_at", { ascending: false })
         .limit(50),
       supabase
         .from("topics")
@@ -184,7 +189,12 @@ function ContentPanel() {
         .order("created_at", { ascending: false })
         .limit(50),
     ])
-    setArticles((a.data as Article[]) ?? [])
+    const fetchedArticles = (a.data as Article[]) ?? []
+    setArticles(fetchedArticles)
+    // Reset sort edits to match freshly loaded values
+    const edits: Record<string, string> = {}
+    fetchedArticles.forEach((art) => { edits[art.id] = String(art.sort_order ?? 0) })
+    setSortEdits(edits)
     setTopics((t.data as Topic[]) ?? [])
   }
 
@@ -201,6 +211,27 @@ function ContentPanel() {
     await supabase.from("articles").update({ is_featured: !current }).eq("id", id)
     toast.success(!current ? "已加精" : "已取消加精")
     load()
+  }
+
+  async function saveSortOrder(id: string) {
+    const raw = sortEdits[id] ?? "0"
+    const val = parseInt(raw, 10)
+    if (isNaN(val)) {
+      toast.error("请输入整数")
+      return
+    }
+    setSavingSort((s) => ({ ...s, [id]: true }))
+    const { error } = await supabase
+      .from("articles")
+      .update({ sort_order: val })
+      .eq("id", id)
+    setSavingSort((s) => ({ ...s, [id]: false }))
+    if (error) {
+      toast.error("保存失败：" + error.message)
+    } else {
+      toast.success("排序权重已保存")
+      load()  // reload to reflect new sort order
+    }
   }
 
   async function del(type: "article" | "topic", id: string) {
@@ -225,13 +256,35 @@ function ContentPanel() {
                 <div className="flex-1 min-w-0">
                   <div className="text-sm font-medium truncate">{a.title}</div>
                   <div className="text-xs text-muted-foreground mt-0.5">
-                    {a.author?.username} · {timeAgo(a.created_at)} · {a.view_count} 阅读
+                    {a.author?.username} · {timeAgo(a.published_at ?? a.created_at)} · {a.view_count} 阅读
                   </div>
                 </div>
                 <div className="flex items-center gap-1 shrink-0 flex-wrap justify-end">
                   {a.is_pinned && <Badge variant="secondary" className="text-[10px]">置顶</Badge>}
                   {a.is_featured && <Badge className="text-[10px] bg-accent text-accent-foreground">精选</Badge>}
                 </div>
+              </div>
+              {/* Sort order control */}
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-muted-foreground whitespace-nowrap">排序权重</span>
+                <input
+                  type="number"
+                  value={sortEdits[a.id] ?? "0"}
+                  onChange={(e) => setSortEdits((prev) => ({ ...prev, [a.id]: e.target.value }))}
+                  onKeyDown={(e) => { if (e.key === "Enter") saveSortOrder(a.id) }}
+                  className="w-20 h-7 rounded-md border border-input bg-transparent px-2 text-sm outline-none focus-visible:border-ring focus-visible:ring-[2px] focus-visible:ring-ring/50"
+                  placeholder="0"
+                />
+                <span className="text-xs text-muted-foreground">(越大越靠前)</span>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-7 px-2 text-xs"
+                  disabled={savingSort[a.id]}
+                  onClick={() => saveSortOrder(a.id)}
+                >
+                  {savingSort[a.id] ? "保存中..." : "保存"}
+                </Button>
               </div>
               <div className="flex gap-1 flex-wrap">
                 <Button size="sm" variant="outline" onClick={() => togglePin("article", a.id, a.is_pinned)}>

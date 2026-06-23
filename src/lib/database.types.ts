@@ -97,6 +97,7 @@ export interface Article {
   status: ArticleStatus
   is_featured: boolean
   is_pinned: boolean
+  sort_order: number
   view_count: number
   like_count: number
   comment_count: number

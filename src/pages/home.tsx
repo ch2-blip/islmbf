@@ -116,6 +116,7 @@ export function HomePage() {
         .select("*, author:profiles!articles_author_id_fkey(*), category:categories(*)")
         .eq("status", "published")
         .order("is_pinned", { ascending: false })
+        .order("sort_order", { ascending: false })
         .order("published_at", { ascending: false })
         .limit(20),
       supabase

@@ -77,6 +77,7 @@ function sanitizeArticleForList(a) {
     excerpt_enabled: a.excerpt_enabled,
     is_pinned: a.is_pinned,
     is_featured: a.is_featured,
+    sort_order: a.sort_order ?? 0,
     view_count: a.view_count,
     like_count: a.like_count,
     comment_count: a.comment_count,
@@ -191,6 +192,7 @@ async function main() {
     .select("*, author:profiles!articles_author_id_fkey(*), category:categories(*)")
     .eq("status", "published")
     .order("is_pinned", { ascending: false })
+    .order("sort_order", { ascending: false })
     .order("published_at", { ascending: false })
     .limit(30)
 
